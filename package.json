@@ -1,0 +1,23 @@
+{
+  "name": "compasso",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test test/*.test.js",
+    "test:e2e": "playwright test",
+    "build:standalone": "vite build --config vite.single.config.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "vite": "^7.2.2",
+    "vite-plugin-singlefile": "^2.3.4"
+  },
+  "dependencies": {
+    "@tonejs/midi": "^2.0.28",
+    "vexflow": "^5.0.0"
+  }
+}
