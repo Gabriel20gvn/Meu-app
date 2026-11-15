@@ -21,6 +21,21 @@ test('real audio + MIDI renders, plays and persists score, offset and lyric cues
  const svgBox=await page.locator('.engraving svg').first().boundingBox();const measureBox=await page.locator('.real-measure').first().boundingBox();expect(svgBox.width).toBeLessThanOrEqual(measureBox.width);
  await expect(page.locator('#score-status')).toContainText('16 notas importadas');
  await page.locator('#real-toggle').click();await expect(page.locator('#real-time')).not.toHaveText('0:00');await page.locator('#real-toggle').click();
+ const layout=page.getByLabel('Compassos por linha',{exact:true});
+ await expect(layout).toHaveValue('1');
+ const pausedTime=await page.locator('audio').evaluate(a=>a.currentTime);
+ for(const columns of [2,4,1,4]){
+  await layout.selectOption(String(columns));await expect(layout).toBeEnabled();
+  const boxes=await page.locator('.real-measure').evaluateAll(elements=>elements.map(e=>{const b=e.getBoundingClientRect();return {top:b.top,right:b.right,left:b.left};}));
+  expect(boxes.filter(b=>Math.abs(b.top-boxes[0].top)<1)).toHaveLength(columns);
+  expect(boxes.every(b=>b.left>=0&&b.right<=390)).toBeTruthy();
+  expect(await page.locator('audio').evaluate(a=>a.currentTime)).toBe(pausedTime);
+ }
+ await page.setViewportSize({width:844,height:390});
+ await expect(layout).toHaveValue('4');
+ const landscapeTops=await page.locator('.real-measure').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().top));
+ expect(new Set(landscapeTops).size).toBe(1);
+ await page.setViewportSize({width:390,height:844});
  await page.locator('#offset').fill('1');await page.locator('#offset').dispatchEvent('change');
  await page.getByRole('button',{name:'Marcar seção e letra'}).click();
  await page.getByLabel('Seção',{exact:true}).fill('Refrão');await page.getByLabel('Tempo na gravação (segundos)').fill('3');await page.getByLabel('Trecho da letra (opcional)').fill('Cantando aqui');await page.getByRole('button',{name:'Salvar marcação'}).click();
@@ -29,6 +44,7 @@ test('real audio + MIDI renders, plays and persists score, offset and lyric cues
  await expect(page.locator('[data-index="1"]')).toHaveClass(/active/);
  await page.getByRole('button',{name:/Minha biblioteca/}).click();await page.reload();
  await page.locator('#real-library').getByRole('button',{name:'Abrir música'}).click();
+ await expect(page.getByLabel('Compassos por linha',{exact:true})).toHaveValue('4');
  await expect(page.locator('#offset')).toHaveValue('1');await expect(page.getByRole('button',{name:'Refrão 0:03',exact:true})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  await page.screenshot({path:'/tmp/compasso-real-mobile.png',fullPage:true});expect(errors).toEqual([]);

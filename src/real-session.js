@@ -48,6 +48,7 @@ export async function renderRealLibrary(container,onOpen){
 }
 export async function openRealSession(id,root,onBack){
   const session=await getSession(id);if(!root.isConnected)return null;if(!session)throw new Error('Esta música não está mais na biblioteca.');
+  if(![1,2,4].includes(session.measuresPerRow)) session.measuresPerRow=matchMedia('(max-width: 760px)').matches?1:2;
   const audioUrl=URL.createObjectURL(session.audio);
   let raf,disposed=false,observer,scroll=true,lastBar=-1,writeQueue=Promise.resolve();
   root.innerHTML=`<main class="study real-study"><button class="back">‹ Minha biblioteca</button><div class="study-heading"><div><span class="eyebrow">SUA GRAVAÇÃO ORIGINAL</span><h1>${esc(session.title)}</h1><p>${timeLabel(session.duration)} · áudio local <span class="badge">MÚSICA REAL</span></p></div></div>
@@ -55,6 +56,7 @@ export async function openRealSession(id,root,onBack){
   <div class="session-actions"><button class="primary" id="add-cue">Marcar seção e letra</button><button class="secondary" id="replace-midi">${session.score?'Substituir':'Importar'} MIDI de bateria</button></div>
   <section class="cue-panel"><h2>Onde estou na música?</h2><p id="current-cue">Adicione marcações de Introdução, Verso, Refrão…</p><nav class="sections" id="real-cues" aria-label="Seções da música"></nav></section>
   <div class="score-toolbar real-toolbar"><label>Ajuste de sincronização (segundos)<input id="offset" type="number" step="0.05" min="-1800" max="1800" value="${session.offset}"></label><label><input id="real-scroll" type="checkbox" checked> Rolagem automática</label></div><p class="muted sync-help">Valor positivo atrasa a partitura em relação ao áudio. As marcações de letra mantêm seus tempos na gravação.</p>
+  <div class="score-layout-control"><label for="measures-per-row">Compassos por linha</label><select id="measures-per-row" aria-describedby="layout-hint">${[1,2,4].map(n=>`<option value="${n}" ${session.measuresPerRow===n?'selected':''}>${n}</option>`).join('')}</select><span id="layout-hint">Para 4 compassos, experimente o celular na horizontal.</span></div>
   <p id="score-status" class="demo-notice"></p><div id="real-score"></div><p id="real-legend" class="score-legend"></p></main><div class="real-current" role="status"><span id="real-time">0:00</span><strong id="real-location">Áudio pronto</strong><button id="real-toggle" class="primary">Reproduzir</button></div>`;
   const audio=root.querySelector('audio');audio.src=audioUrl;
   const error=root.querySelector('#session-error');
@@ -78,15 +80,30 @@ export async function openRealSession(id,root,onBack){
       catch(e){session.cues=previous;d.querySelector('.error').textContent=e.message;}finally{button.disabled=false;}
     };
   };
+  const layoutSelect=root.querySelector('#measures-per-row');
+  function applyLayout(){
+    layoutSelect.value=String(session.measuresPerRow);
+    root.querySelector('#real-score').style.setProperty('--measures-per-row',session.measuresPerRow);
+  }
+  layoutSelect.onchange=async()=>{
+    const value=Number(layoutSelect.value),previous=session.measuresPerRow;
+    if(![1,2,4].includes(value))return;
+    session.measuresPerRow=value;applyLayout();layoutSelect.disabled=true;
+    try{await persist();}
+    catch(e){session.measuresPerRow=previous;applyLayout();report(e);}
+    finally{layoutSelect.disabled=!session.score;}
+  };
+  applyLayout();
   const layouts=new Map();
   function drawScore(){
     observer?.disconnect();layouts.clear();lastBar=-1;
     const score=session.score,container=root.querySelector('#real-score');
     root.querySelector('#offset').disabled=!score;
+    layoutSelect.disabled=!score;
     if(!score){container.innerHTML='';root.querySelector('#score-status').textContent='Sem partitura ainda. Importe um MIDI de bateria correspondente a este áudio. A geração automática por IA ainda não foi integrada.';return;}
     root.querySelector('#score-status').textContent=`${score.noteCount} notas importadas · ${score.bars.length} compassos · ${Math.round(score.tempo)} BPM${score.hasTempoChanges?' com mudanças de andamento':''}. Notação em grade de semicolcheias; ${score.rounded} ataques arredondados. Tercinas e microvariações não são representadas fielmente nesta versão. O áudio original não é alterado.${score.assumedMeter?' MIDI sem indicação de compasso: assumido 4/4.':''}${score.bars.at(-1).end+session.offset>session.duration+1?' Atenção: a partitura termina depois do áudio; confira se os arquivos correspondem e ajuste a sincronização.':''}`;
     container.className='real-score-grid';
-    container.innerHTML=score.bars.map(b=>`<button class="real-measure" data-index="${b.index}" aria-label="Ir para compasso ${b.index+1}"><span>Compasso ${b.index+1}</span><div class="engraving"></div><i class="real-playhead"></i></button>`).join('');
+    container.innerHTML=score.bars.map(b=>`<button class="real-measure" data-index="${b.index}" aria-label="Ir para compasso ${b.index+1}"><span>Compasso ${b.index+1}</span><div class="engraving"><i class="real-playhead"></i></div></button>`).join('');
     const render=element=>{const index=Number(element.dataset.index);if(!layouts.has(index)){try{layouts.set(index,drawBar(element.querySelector('.engraving'),score.bars[index]));}catch(e){element.querySelector('.engraving').textContent='Não foi possível desenhar este compasso.';report(new Error('Falha ao renderizar a partitura.'));}}};
     observer=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting)render(e.target);}),{rootMargin:'400px'});
     container.querySelectorAll('.real-measure').forEach(b=>{observer.observe(b);b.onclick=()=>{audio.currentTime=Math.max(0,Math.min(session.duration,score.bars[Number(b.dataset.index)].start+session.offset));};});
