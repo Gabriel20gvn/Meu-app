@@ -186,6 +186,18 @@ class Jobs:
                 self.wake.wait(1)
                 self.wake.clear()
 
+    def summary(self, id):
+        try:
+            return json.loads((self.folder(id)/'summary.json').read_text())
+        except (OSError, ValueError):
+            return None
+
+    def result(self, id):
+        path = self.folder(id)/'result.mid'
+        if self.get(id)['state'] != 'completed' or not path.is_file():
+            return None
+        return path.read_bytes()
+
     def close(self):
         self.stop.set()
         self.wake.set()

@@ -1,0 +1,5 @@
+google-cloud-firestore>=2.20,<3
+google-cloud-storage>=2.19,<3
+google-cloud-run>=0.10,<0.11
+# TensorFlow 2.15 in the worker requires protobuf < 5.
+protobuf>=3.20.3,<5

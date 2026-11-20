@@ -14,8 +14,9 @@ os.environ.setdefault('TF_NUM_INTEROP_THREADS', '2')
 os.environ.setdefault('OPENBLAS_NUM_THREADS', '2')
 os.environ.setdefault('OMP_NUM_THREADS', '2')
 collections.MutableSequence = collections.abc.MutableSequence
-MAX_BYTES = 80 * 1024 * 1024
-MAX_SECONDS = 900
+MAX_MB = int(os.environ.get('COMPASSO_MAX_AUDIO_MB', '80'))
+MAX_BYTES = MAX_MB * 1024 * 1024
+MAX_SECONDS = int(os.environ.get('COMPASSO_MAX_AUDIO_SECONDS', '900'))
 
 
 class ProcessingError(Exception):
@@ -40,11 +41,11 @@ def prepare(folder, request):
                 raise ProcessingError('live_video', 'Use uma gravação finalizada; transmissões ao vivo não são suportadas.')
             duration = info.get('duration')
             if duration is not None and duration > MAX_SECONDS:
-                raise ProcessingError('duration_limit', 'Use uma gravação de até 15 minutos.')
+                raise ProcessingError('duration_limit', f'Use uma gravação de até {MAX_SECONDS//60} minutos.')
             return None
         def size_guard(info):
             if info.get('downloaded_bytes', 0) > MAX_BYTES:
-                raise ProcessingError('audio_too_large', 'O áudio excede 80 MB. Envie um trecho menor.')
+                raise ProcessingError('audio_too_large', f'O áudio excede {MAX_MB} MB. Envie um trecho menor.')
         options = {
             'format': 'bestaudio/best', 'noplaylist': True,
             'outtmpl': str(folder / 'download.%(ext)s'),
@@ -63,12 +64,12 @@ def prepare(folder, request):
         except Exception as e:
             raise ProcessingError('youtube_unavailable', 'O YouTube não liberou o áudio. Envie um MP3 ou WAV da mesma gravação para continuar.') from e
     if not source.is_file() or source.stat().st_size > MAX_BYTES:
-        raise ProcessingError('invalid_audio', 'Selecione um áudio de até 80 MB.')
+        raise ProcessingError('invalid_audio', f'Selecione um áudio de até {MAX_MB} MB.')
     try:
         probe = subprocess.run(['ffprobe', '-v', 'error', '-protocol_whitelist', 'file,pipe', '-show_entries', 'format=duration', '-of', 'json', str(source)], capture_output=True, text=True, check=True, timeout=30)
         duration = float(json.loads(probe.stdout)['format']['duration'])
         if not 5 <= duration <= MAX_SECONDS:
-            raise ProcessingError('duration_limit', 'Use um áudio entre 5 segundos e 15 minutos.')
+            raise ProcessingError('duration_limit', f'Use um áudio entre 5 segundos e {MAX_SECONDS//60} minutos.')
         audio = folder / 'audio.wav'
         subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-protocol_whitelist', 'file,pipe', '-i', str(source), '-vn', '-ac', '1', '-ar', '44100', '-t', str(MAX_SECONDS), str(audio)], capture_output=True, check=True, timeout=120)
         return audio, title

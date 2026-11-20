@@ -7,7 +7,7 @@ COPY src ./src
 RUN npm run build:standalone
 
 FROM denoland/deno:bin-2.5.6 AS deno
-FROM python:3.10-slim-bookworm
+FROM python:3.10-slim-bookworm AS processor
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 CUDA_VISIBLE_DEVICES=-1 \
     OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2 TF_NUM_INTRAOP_THREADS=2 TF_NUM_INTEROP_THREADS=2 \
     COMPASSO_DATA_DIR=/data COMPASSO_STATIC_DIR=/app/dist-single
@@ -28,3 +28,11 @@ RUN useradd -m -u 10001 compasso && mkdir -p /data && chown compasso /data \
 EXPOSE 8000
 COPY --chmod=755 server/entrypoint.sh /app/server/entrypoint.sh
 CMD ["/app/server/entrypoint.sh"]
+
+# Optional Google Cloud worker. The default target below keeps local/Render behavior.
+FROM processor AS cloud-worker
+RUN pip install --no-cache-dir -c server/constraints.txt -r server/cloud-requirements.txt
+USER 10001:10001
+CMD ["python", "-m", "server.cloud_worker"]
+
+FROM processor AS default

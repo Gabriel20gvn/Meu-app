@@ -2,6 +2,8 @@
 
 Recebe um link do YouTube ou MP3/WAV, executa **ADTOF → detecção de pulsação/compassos → MIDI alinhado** e devolve a partitura ao aplicativo. Funciona em um servidor separado do GitHub Pages, mesmo com o computador do usuário desligado. Não é um serviço já contratado ou ativado.
 
+O projeto `compasso-b1121` também tem uma opção de [Cloud Run sob demanda](../cloud/google/README.md), preparada mas ainda não ativada.
+
 ## Ativar na nuvem
 
 O arquivo [`render.yaml`](../render.yaml) prepara a implantação no Render com Docker, um processo de IA por vez e disco persistente. **O plano `standard` e o disco são pagos.** Confira os valores apresentados pelo Render antes de confirmar a criação. Não há uma conta ou cobrança criada por este repositório.

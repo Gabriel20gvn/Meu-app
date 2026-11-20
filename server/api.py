@@ -1,22 +1,21 @@
 import hmac
-import json
 import os
 from pathlib import Path
-import re
 import tempfile
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ConfigDict
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from server.jobs import Jobs, BusyError
 
-MAX_BYTES = 80*1024*1024
-VIDEO_ID = re.compile(r'^[a-zA-Z0-9_-]{11}$')
+MAX_MB = int(os.environ.get('COMPASSO_MAX_AUDIO_MB', '80'))
+MAX_BYTES = MAX_MB*1024*1024
+MAX_MINUTES = int(os.environ.get('COMPASSO_MAX_AUDIO_SECONDS', '900'))//60
 
 
 class AccessAndSize:
@@ -33,14 +32,14 @@ class AccessAndSize:
         try: length = int(headers.get(b'content-length', b'0'))
         except ValueError: length = MAX_BYTES+2*1024*1024
         if length > MAX_BYTES+1024*1024:
-            return await JSONResponse({'detail': 'O áudio deve ter até 80 MB.'}, status_code=413)(scope, receive, send)
+            return await JSONResponse({'detail': f'O áudio deve ter até {MAX_MB} MB.'}, status_code=413)(scope, receive, send)
         total = 0
         async def limited_receive():
             nonlocal total
             message = await receive()
             total += len(message.get('body', b''))
             if total > MAX_BYTES+1024*1024:
-                raise StarletteHTTPException(413, 'O áudio deve ter até 80 MB.')
+                raise StarletteHTTPException(413, f'O áudio deve ter até {MAX_MB} MB.')
             return message
         await self.app(scope, limited_receive, send)
 
@@ -60,7 +59,13 @@ def create_app(root=None, token=None, *, manager=None):
 
     @asynccontextmanager
     async def lifespan(app):
-        app.state.jobs = manager or Jobs(root)
+        if manager:
+            app.state.jobs = manager
+        elif os.environ.get('COMPASSO_BACKEND') == 'cloud-run':
+            from server.cloud_jobs import CloudJobs
+            app.state.jobs = CloudJobs()
+        else:
+            app.state.jobs = Jobs(root)
         yield
         app.state.jobs.close()
 
@@ -73,11 +78,12 @@ def create_app(root=None, token=None, *, manager=None):
     def health(): return {'status': 'ok'}
 
     @app.get('/api/connection')
-    def connection(): return {'status': 'ok', 'meter': '4/4', 'max_audio_mb': 80, 'max_minutes': 15}
+    def connection(): return {'status': 'ok', 'meter': '4/4', 'max_audio_mb': MAX_MB, 'max_minutes': MAX_MINUTES}
 
     def create(payload, source=None):
         try: return app.state.jobs.create(payload, source)
         except BusyError as e: raise HTTPException(429, str(e)) from e
+        except RuntimeError as e: raise HTTPException(503, str(e)) from e
 
     @app.post('/api/jobs', status_code=202)
     def generate(body: JobRequest):
@@ -96,7 +102,7 @@ def create_app(root=None, token=None, *, manager=None):
                 size = 0
                 while chunk := await audio.read(1024*1024):
                     size += len(chunk)
-                    if size > MAX_BYTES: raise HTTPException(413, 'O áudio deve ter até 80 MB.')
+                    if size > MAX_BYTES: raise HTTPException(413, f'O áudio deve ter até {MAX_MB} MB.')
                     stream.write(chunk)
             if not size: raise HTTPException(422, 'O arquivo está vazio.')
             return create({'source': 'upload', 'video_id': validated.video_id, 'bpm': validated.bpm}, path)
@@ -113,8 +119,7 @@ def create_app(root=None, token=None, *, manager=None):
         job = get(id)
         value = {key: job[key] for key in ('id','state','error','code')}
         if job['state'] == 'completed':
-            try: value['summary'] = json.loads((app.state.jobs.folder(id)/'summary.json').read_text())
-            except (OSError, ValueError): pass
+            value['summary'] = app.state.jobs.summary(id)
         return value
 
     @app.delete('/api/jobs/{id}')
@@ -125,10 +130,15 @@ def create_app(root=None, token=None, *, manager=None):
     @app.get('/api/jobs/{id}/result')
     def result(id: str):
         job = get(id)
-        path = app.state.jobs.folder(id)/'result.mid'
-        if job['state'] != 'completed' or not path.is_file():
+        if job['state'] != 'completed':
             raise HTTPException(409, 'A partitura ainda não está pronta.')
-        return FileResponse(path, media_type='audio/midi', filename='bateria-automatica.mid')
+        try:
+            data = app.state.jobs.result(id)
+        except Exception:
+            raise HTTPException(503, 'Não foi possível recuperar o MIDI. Tente novamente.')
+        if data is None:
+            raise HTTPException(409, 'A partitura ainda não está pronta.')
+        return Response(data, media_type='audio/midi', headers={'Content-Disposition': 'attachment; filename=bateria-automatica.mid'})
 
     static = Path(os.environ.get('COMPASSO_STATIC_DIR', 'dist-single'))
     if static.is_dir(): app.mount('/', StaticFiles(directory=static, html=True), name='app')

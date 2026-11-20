@@ -15,7 +15,7 @@ App experimental de partitura de bateria para celular e computador. A prioridade
 - Salva links do YouTube e oferece **Reproduzir vídeo** dentro do app, pelo player oficial, sem precisar de chave da API do YouTube. Links salvos em versões anteriores continuam funcionando.
 - Mantém a demonstração sintetizada, os vídeos do YouTube e as músicas locais com MIDI em telas separadas.
 
-**A geração automática precisa de um processador na nuvem configurado.** O repositório inclui esse servidor: ADTOF identifica os golpes, madmom estima pulsação e início dos compassos, e o exportador mantém a introdução e o alinhamento no MIDI. O GitHub Pages hospeda a interface; sozinho não executa esses modelos. A hospedagem do processador não é criada automaticamente ao publicar o app. Veja [como ativar o processador](server/README.md).
+**A geração automática precisa de um processador na nuvem configurado.** O repositório inclui esse servidor: ADTOF identifica os golpes, madmom estima pulsação e início dos compassos, e o exportador mantém a introdução e o alinhamento no MIDI. O GitHub Pages hospeda a interface; sozinho não executa esses modelos. A hospedagem do processador não é criada automaticamente ao publicar o app. Veja [o processador local/Render](server/README.md) ou [o piloto Google Cloud](cloud/google/README.md) para o projeto `compasso-b1121`. A opção Google usa Cloud Run Jobs sob demanda e limites de três tentativas por dia, cinco minutos por áudio e 25 MiB; requer ativação de faturamento no projeto pelo titular.
 
 Na interface: **Nova música → colar link → Gerar partitura**. Deixe BPM automático ou informe um valor conhecido em **Ajustes opcionais**. A tela acompanha as etapas reais, permite cancelar e retomar uma análise em andamento. Se o YouTube não liberar o áudio, oferece envio de MP3/WAV da mesma gravação. Ao concluir, salva e abre a partitura junto ao vídeo. Uma falha na geração preserva a partitura anterior. A chave de acesso é solicitada ao conectar o processador e fica apenas na sessão da aba, fora do código publicado.
 
@@ -101,7 +101,8 @@ Em outro ambiente: `npx playwright install chromium`, seguido de `npm run test:e
 - `src/drum-grid.js`, `src/score-view.js` e `src/score-view.css`: grade por instrumento e alternância de visualização.
 - `src/session-store.js`: persistência local IndexedDB.
 - `src/generation.js`, `src/generation-api.js`: geração, conexão, progresso, retomada e alternativa de upload.
-- `server/`: API autenticada, fila de um processamento por vez, ADTOF/madmom e imagem Docker.
+- `server/`: API autenticada, ADTOF/madmom e filas local ou Google Cloud.
+- `cloud/google/`: configuração do piloto sob demanda para `compasso-b1121`, sem ativação automática.
 - `render.yaml`: configuração revisável de implantação na nuvem; inclui plano pago e disco persistente.
 - `src/audio.js`, `src/music.js`: demonstração sintetizada.
 - `test/`, `e2e/`: testes de regras e de navegador.

@@ -6,7 +6,7 @@ import './generation.css';
 export function connectProcessor(){
   return new Promise(resolve=>{
     const d=document.createElement('dialog');d.className='real-dialog generation-dialog';
-    d.innerHTML='<button type="button" class="close" aria-label="Fechar">×</button><form><h2>Conectar processador</h2><p>Conecte o servidor que executa sua IA. A chave fica somente nesta sessão do navegador.</p><label for="processor-url">Endereço do processador</label><input id="processor-url" type="url" placeholder="https://seu-processador.onrender.com" required><label for="processor-token">Chave de acesso</label><input id="processor-token" type="password" autocomplete="off" required><p class="error" role="alert"></p><button class="primary" type="submit">Conectar</button></form>';
+    d.innerHTML='<button type="button" class="close" aria-label="Fechar">×</button><form><h2>Conectar processador</h2><p>Conecte o servidor que executa sua IA. A chave fica somente nesta sessão do navegador.</p><label for="processor-url">Endereço do processador</label><input id="processor-url" type="url" placeholder="https://seu-processador.run.app" required><label for="processor-token">Chave de acesso</label><input id="processor-token" type="password" autocomplete="off" required><p class="error" role="alert"></p><button class="primary" type="submit">Conectar</button></form>';
     const current=processorConfig();d.querySelector('#processor-url').value=current.endpoint;
     d.querySelector('#processor-token').value=current.token;
     let connected=false;
@@ -32,7 +32,12 @@ export function generateScore(videoId,{onReady=()=>{},start=false,bpm=null}={}){
   const d=document.createElement('dialog');d.className='real-dialog generation-dialog';
   d.innerHTML='<button type="button" class="close" aria-label="Fechar">×</button><h2>Gerar partitura</h2><div class="generation-body"></div>';
   const body=d.querySelector('.generation-body');
-  let timer,epoch=0,job=null,closed=false;
+  let timer,epoch=0,job=null,closed=false,limits={mb:80,minutes:15};
+  async function readLimits(){
+    const info=await processorJSON('/api/connection');
+    if(Number.isFinite(info.max_audio_mb)&&info.max_audio_mb>0&&info.max_audio_mb<=80)limits.mb=info.max_audio_mb;
+    if(Number.isFinite(info.max_minutes)&&info.max_minutes>0&&info.max_minutes<=15)limits.minutes=info.max_minutes;
+  }
   const remember=value=>{try{if(value)localStorage.setItem(key,JSON.stringify(value));else localStorage.removeItem(key);}catch{}};
   try{job=JSON.parse(localStorage.getItem(key)||'null');}catch{}
   if(job && (job.endpoint!==processorConfig().endpoint||!job.id?.match(/^[a-f0-9]{32}$/)))job=null;
@@ -58,13 +63,16 @@ export function generateScore(videoId,{onReady=()=>{},start=false,bpm=null}={}){
     body.querySelector('.cancel-generation').onclick=cancel;
   }
   function failure(error,code){
-    body.innerHTML='<p class="error" role="alert"></p><button class="primary retry-generation">Tentar novamente</button><form class="generation-upload"><label for="generation-file">Ou envie MP3/WAV da mesma gravação</label><input id="generation-file" type="file" accept=".mp3,.wav" required><p>Use o áudio com o mesmo início do vídeo. Até 80 MB e 15 minutos.</p><button class="secondary" type="submit">Enviar áudio e gerar</button></form><button class="generation-link processor-settings">Configurar processador</button>';
+    body.innerHTML='<p class="error" role="alert"></p><button class="primary retry-generation">Tentar novamente</button><form class="generation-upload"><label for="generation-file">Ou envie MP3/WAV da mesma gravação</label><input id="generation-file" type="file" accept=".mp3,.wav" required><p class="upload-limits"></p><button class="secondary" type="submit">Enviar áudio e gerar</button></form><button class="generation-link processor-settings">Configurar processador</button>';
     body.querySelector('[role=alert]').textContent=error;
+    const limitsLabel=body.querySelector('.upload-limits');
+    const showLimits=()=>{if(limitsLabel.isConnected)limitsLabel.textContent=`Use o áudio com o mesmo início do vídeo. Até ${limits.mb} MB e ${limits.minutes} minutos.`;};
+    showLimits();readLimits().then(showLimits).catch(()=>{});
     body.querySelector('.retry-generation').onclick=()=>job?resume():begin();
     body.querySelector('.processor-settings').onclick=async()=>{if(await connectProcessor()){if(job?.endpoint!==processorConfig().endpoint){job=null;remember(null);}if(!closed)form();}};
     body.querySelector('.generation-upload').onsubmit=e=>{
       e.preventDefault();const file=body.querySelector('input').files[0];
-      if(!file || file.size>80*1024*1024){body.querySelector('[role=alert]').textContent='Selecione um MP3 ou WAV de até 80 MB.';return;}
+      if(!file || file.size>limits.mb*1024*1024){body.querySelector('[role=alert]').textContent=`Selecione um MP3 ou WAV de até ${limits.mb} MB.`;return;}
       job=null;remember(null);begin(file);
     };
     // Never send a second recording while the first job may still be running.
@@ -80,6 +88,9 @@ export function generateScore(videoId,{onReady=()=>{},start=false,bpm=null}={}){
     const run=++epoch;clearTimeout(timer);progress('preparing');
     body.querySelector('.cancel-generation').disabled=true;
     try{
+      await readLimits();
+      if(closed||run!==epoch)return;
+      if(file&&file.size>limits.mb*1024*1024)throw new Error(`O arquivo deve ter até ${limits.mb} MB neste processador.`);
       let result;
       if(file){
         const data=new FormData();data.set('video_id',videoId);data.set('bpm',bpm??'');data.set('audio',file);

@@ -85,6 +85,7 @@ test('blocked YouTube audio offers upload and generates from the same recording'
     if(path==='/api/jobs'&&request.method()==='POST'){
       expect(request.postDataJSON().bpm).toBeNull();return reply(route,{id:job,state:'queued'},202);
     }
+    if(path==='/api/connection')return reply(route,{status:'ok',max_audio_mb:25,max_minutes:5});
     if(path==='/api/jobs/upload'){
       uploads++;expect(request.headers()['content-type']).toContain('multipart/form-data');
       expect(request.postDataBuffer().toString()).toContain('same-recording.wav');
@@ -93,6 +94,10 @@ test('blocked YouTube audio offers upload and generates from the same recording'
     return reply(route,path.endsWith(second)?{id:second,state:'completed'}:{id:job,state:'failed',code:'youtube_unavailable',error:'O YouTube não liberou o áudio. Envie um MP3 ou WAV da mesma gravação para continuar.'});
   });
   await start(page);await expect(page.locator('dialog [role=alert]')).toContainText('YouTube não liberou');
+  await expect(page.locator('.upload-limits')).toContainText('25 MB e 5 minutos');
+  await page.getByLabel('Ou envie MP3/WAV da mesma gravação').setInputFiles({name:'large.wav',mimeType:'audio/wav',buffer:Buffer.alloc(26*1024*1024)});
+  await page.getByRole('button',{name:'Enviar áudio e gerar'}).click();
+  await expect(page.locator('dialog [role=alert]')).toContainText('25 MB');expect(uploads).toBe(0);
   await page.getByLabel('Ou envie MP3/WAV da mesma gravação').setInputFiles({name:'same-recording.wav',mimeType:'audio/wav',buffer:Buffer.from('synthetic test upload')});
   await page.getByRole('button',{name:'Enviar áudio e gerar'}).click();
   await expect(page.locator('.real-measure')).toHaveCount(5);expect(uploads).toBe(1);

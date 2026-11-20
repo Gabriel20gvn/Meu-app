@@ -1,0 +1,9 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: [build, -f, cloud/google/Api.Dockerfile, -t, '${_API_IMAGE}', .]
+  - name: gcr.io/cloud-builders/docker
+    args: [build, -f, server/Dockerfile, --target, cloud-worker, -t, '${_WORKER_IMAGE}', .]
+images: ['${_API_IMAGE}', '${_WORKER_IMAGE}']
+timeout: 1800s
+options:
+  logging: CLOUD_LOGGING_ONLY
