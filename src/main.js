@@ -1,6 +1,7 @@
 import './style.css';
 import { BAR, BEAT, DURATION, sections, youtubeId, sectionAt, timeLabel, eventsForBar } from './music.js';
 import { DemoPlayer } from './audio.js';
+import { createYoutubePlayer } from './youtube.js';
 const icons = {
  restart: '<path d="M6 5v14m12-14L8 12l10 7Z"/>', plus: '<path d="M12 5v14M5 12h14"/>', play: '<path d="m8 5 11 7-11 7Z"/>', pause: '<path d="M8 5v14M16 5v14"/>',
  arrow: '<path d="M5 12h14m-6-6 6 6-6 6"/>', back: '<path d="m14 6-6 6 6 6"/>', link: '<path d="m10 13 4-4m-6 6-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m4 2 2-2a4 4 0 0 0-6-6L6 5" transform="translate(3 3) scale(.9)"/>',
@@ -32,20 +33,34 @@ function library() {
   shell(`<main class="library"><div class="eyebrow">SEU ESPAÇO DE PRÁTICA</div><div class="page-title"><div><h1>Cada música,<br>um novo <span>compasso.</span></h1><p>Da primeira batida à última virada. Toque junto.</p></div><button class="primary add">${icon('plus')} Nova música</button></div>
   <section class="hero"><div class="hero-copy"><span class="pill">${icon('headphones')} VAMOS TOCAR?</span><h2>Encontre seu ritmo.<br>O resto acompanha.</h2><p>Partitura, seções e letra no mesmo lugar.<br>Experimente acompanhar uma batida do início ao fim.</p><button class="light open-demo">Explorar demonstração ${icon('arrow')}</button><small>Áudio de bateria gerado · sem análise por IA</small></div><div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="record"><div class="record-label">c<span>96 BPM</span></div></div><span class="art-tag">♩ &nbsp; NO SEU TEMPO</span><div class="wave">${Array.from({length:23},(_,i)=>`<i style="height:${15 + ((i*37)%65)}px"></i>`).join('')}</div></div></section>
   <section class="real-intro"><div><h2>Teste com sua música</h2><p>Abra um áudio e importe um MIDI de bateria para acompanhar a gravação original.</p></div><button class="primary" id="import-real">Importar áudio e MIDI</button></section><div class="cards" id="real-library"></div><section class="collection"><div class="section-heading"><h2>Minha biblioteca <span>${1 + saved.length}</span></h2><span class="muted">Seu próximo ensaio começa aqui</span></div><div class="cards"><button class="song-card open-demo"><div class="cover"><span class="cover-top">COMPASSO SESSIONS <span>01</span></span><span class="cover-title">Primeiro<br>compasso<span>●</span></span><span class="cover-bottom">ESTUDO DE BATERIA <span>↗</span></span></div><div class="song-body"><span class="badge">DEMONSTRAÇÃO</span><h3>Primeiro compasso</h3><p>Groove de estudo · 96 BPM · 4/4</p><div class="song-footer"><span>0:20 <span>·</span> 8 compassos</span><span class="circle-play">${icon('play')}</span></div></div></button>
-  ${saved.map(s=>`<article class="pending-card"><span class="pending-icon">${icon('link')}</span><span class="badge neutral">AGUARDANDO INTEGRAÇÃO</span><h3>Link salvo do YouTube</h3><p>A análise deste link por IA ainda não está disponível. Você pode importar o áudio e um MIDI pelo botão acima.</p><a href="https://www.youtube.com/watch?v=${escape(youtubeId(s.url))}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a><button class="remove" data-id="${escape(youtubeId(s.url))}">Remover da biblioteca</button></article>`).join('')}
-  <button class="new-card add"><span>${icon('plus')}</span><h3>Sua próxima música</h3><p>Cole um link do YouTube<br>para preparar sua biblioteca.</p></button></div></section>
+  ${saved.map(s=>`<article class="pending-card"><span class="pending-icon">${icon('link')}</span><span class="badge">YOUTUBE</span><h3>Vídeo salvo do YouTube</h3><p>Reproduza aqui, sem baixar um arquivo de áudio.</p><button class="primary play-youtube" data-video="${escape(youtubeId(s.url))}">${icon('play')} Reproduzir vídeo</button><a href="https://www.youtube.com/watch?v=${escape(youtubeId(s.url))}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a><button class="remove" data-id="${escape(youtubeId(s.url))}">Remover da biblioteca</button></article>`).join('')}
+  <button class="new-card add"><span>${icon('plus')}</span><h3>Sua próxima música</h3><p>Cole um link do YouTube<br>e dê play aqui no Compasso.</p></button></div></section>
   <footer><span>${icon('music')} Feito para acompanhar você.</span><span>Versão de testes · dados salvos neste navegador</span></footer></main>`);
   document.querySelector('#import-real').onclick=importReal;
   const realLibrary=document.querySelector('#real-library');
   import('./real-session.js').then(m=>{if(realLibrary.isConnected)m.renderRealLibrary(realLibrary,enterReal);}).catch(()=>{if(realLibrary.isConnected)realLibrary.textContent='Não foi possível carregar músicas locais. Recarregue a página.';});
   document.querySelectorAll('.open-demo').forEach(b=>b.onclick=study);
   document.querySelectorAll('.add').forEach(b=>b.onclick=addDialog);
+  document.querySelectorAll('.play-youtube').forEach(b=>b.onclick=()=>youtubeStudy(b.dataset.video));
   document.querySelectorAll('.remove').forEach(b=>b.onclick=()=>{ saved=saved.filter(s=>youtubeId(s.url)!==b.dataset.id); persist(); library(); });
+}
+function youtubeStudy(videoId) {
+  // Construct the validated player before replacing the current screen.
+  const iframe = createYoutubePlayer(videoId);
+  player.pause(); realDispose?.(); realDispose=null; view='youtube';
+  shell(`<main class="study youtube-study"><button class="back">${icon('back')} Minha biblioteca</button><div class="study-heading"><div><span class="eyebrow">OUÇA NO COMPASSO</span><h1>Vídeo do YouTube</h1><p>Player oficial · sem baixar um arquivo de áudio</p></div><span class="study-icon">${icon('headphones')}</span></div>
+  <div class="youtube-player"></div>
+  <div class="youtube-actions"><a class="primary" href="https://www.youtube.com/watch?v=${escape(videoId)}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ${icon('arrow')}</a><p class="youtube-help">Se a reprodução não começar, toque no ▶ do player. Alguns vídeos só permitem assistir no YouTube; nesse caso, use o botão ao lado.</p></div>
+  <p class="demo-notice">Nesta tela você pode ouvir o vídeo. A geração da partitura por IA e a sincronização de MIDI com o YouTube ainda não estão disponíveis.</p></main>`);
+  document.querySelector('.youtube-player').append(iframe);
+  // Removing the iframe on navigation also stops playback.
+  document.querySelector('.back').onclick=library;
+  window.scrollTo(0,0);
 }
 function persist() { try { localStorage.setItem('compasso-links', JSON.stringify(saved)); return true; } catch { return false; } }
 function addDialog() {
   const dialog = document.createElement('dialog');
-  dialog.innerHTML = `<form><div class="dialog-head"><span class="eyebrow">NOVA MÚSICA</span><button type="button" class="close" aria-label="Fechar">×</button></div><h2>Qual é a próxima?</h2><p>Cole o link da música que você quer tocar.</p><label for="url">Link do YouTube</label><input id="url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=…" required autocomplete="off"><div class="info">Nesta versão, o link fica salvo na biblioteca. A extração do áudio, a transcrição por IA e a reprodução sincronizada dessa música ainda não estão integradas. Para testar o acompanhamento, use a demonstração.</div><p class="error" role="alert"></p><button class="primary" type="submit">${icon('plus')} Salvar link</button></form>`;
+  dialog.innerHTML = `<form><div class="dialog-head"><span class="eyebrow">NOVA MÚSICA</span><button type="button" class="close" aria-label="Fechar">×</button></div><h2>Qual é a próxima?</h2><p>Cole o link da música que você quer tocar.</p><label for="url">Link do YouTube</label><input id="url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=…" required autocomplete="off"><div class="info">Salve o link e toque em Reproduzir vídeo na biblioteca. O player do YouTube abre dentro do Compasso. A transcrição por IA e o acompanhamento da partitura pelo vídeo ainda não estão disponíveis.</div><p class="error" role="alert"></p><button class="primary" type="submit">${icon('plus')} Salvar link</button></form>`;
   document.body.append(dialog); dialog.showModal();
   dialog.querySelector('.close').onclick=()=>dialog.close(); dialog.onclose=()=>dialog.remove();
   dialog.querySelector('form').onsubmit=e=>{

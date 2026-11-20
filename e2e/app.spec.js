@@ -26,7 +26,7 @@ test('YouTube links are validated, persisted, deduplicated and removable',async(
  await page.getByLabel('Link do YouTube').fill('https://example.com/watch?v=dQw4w9WgXcQ');
  await page.getByRole('button',{name:'Salvar link'}).click();await expect(page.getByRole('alert')).toContainText('link válido');
  await page.getByLabel('Link do YouTube').fill('https://youtu.be/dQw4w9WgXcQ');await page.getByRole('button',{name:'Salvar link'}).click();
- await page.reload();await expect(page.getByText('AGUARDANDO INTEGRAÇÃO',{exact:true})).toBeVisible();
+ await page.reload();await expect(page.getByText('YOUTUBE',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Nova música',exact:true}).click();await page.getByLabel('Link do YouTube').fill('https://youtu.be/dQw4w9WgXcQ');await page.getByRole('button',{name:'Salvar link'}).click();await expect(page.getByRole('alert')).toContainText('já está');
  await page.getByRole('button',{name:'Fechar',exact:true}).click();await page.getByRole('button',{name:'Remover da biblioteca'}).click();await page.reload();await expect(page.locator('.pending-card')).toHaveCount(0);
 });

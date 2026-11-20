@@ -11,11 +11,20 @@ App experimental de partitura de bateria para celular e computador. A prioridade
 - Seletor de 1, 2 ou 4 compassos por linha, salvo por música neste navegador. Para 4 compassos no celular, prefira a orientação horizontal.
 - Permite marcar seções e pequenos trechos da letra manualmente nos tempos da gravação.
 - Salva áudio, MIDI interpretado e marcações localmente em IndexedDB. Não envia arquivos a terceiros. Os dados não sincronizam entre dispositivos e podem ser perdidos ao limpar os dados do navegador.
-- Mantém a demonstração sintetizada e a biblioteca de links do YouTube separadas das músicas importadas.
+- Salva links do YouTube e oferece **Reproduzir vídeo** dentro do app, pelo player oficial, sem downloader ou chave de API. Links salvos em versões anteriores continuam funcionando.
+- Mantém a demonstração sintetizada, os vídeos do YouTube e as músicas locais com MIDI em telas separadas.
 
-**Não há backend nem serviço de IA conectado.** Colar um link do YouTube não extrai áudio nem gera uma partitura. O MIDI deve ser produzido por uma ferramenta externa e corresponder à gravação. Sem MIDI, o app permite escutar o áudio e marcar seções, mas não inventa uma partitura.
+**Não há backend nem serviço de IA conectado.** O player do YouTube permite ouvir o vídeo, mas não extrai áudio nem gera ou sincroniza uma partitura. O MIDI deve ser produzido por uma ferramenta externa e corresponder à gravação. Sem MIDI, o app permite escutar o áudio e marcar seções, mas não inventa uma partitura.
 
 A notação importada usa grade de semicolcheias; informa quantos ataques foram arredondados. Tercinas, microvariações, outros compassos e edição de notas ainda não estão disponíveis. Mudanças de andamento do MIDI são preservadas na sincronização. Arquivos sem indicação de compasso assumem 4/4 e exibem aviso. A precisão musical depende do arquivo importado; testes automatizados não demonstram qualidade de uma IA.
+
+## Reproduzir um link do YouTube
+
+Na versão publicada: **Nova música → cole o link → Salvar link → Reproduzir vídeo**. Os controles nativos do YouTube incluem play, pausa, busca, volume e tela cheia. A página mantém **Abrir no YouTube** como alternativa. Ao voltar à biblioteca, o iframe é removido e a reprodução para.
+
+O vídeo é carregado somente ao tocar em Reproduzir vídeo. O navegador então se conecta ao YouTube e usa seu player oficial. Não há yt-dlp, Deno, download de arquivos ou processamento de IA nesse fluxo. Autoplay pode ser bloqueado pelo navegador; nesse caso, toque no Play do próprio player. Vídeos privados, removidos ou com restrição à incorporação podem não funcionar dentro do app.
+
+Use o site HTTPS publicado ou um servidor HTTP local. Abrir um HTML por `file://` pode não fornecer o Referer exigido pelo YouTube (erro 153). O iframe envia `strict-origin-when-cross-origin`, preserva os controles oficiais e tem altura mínima de 200px. A escolha do vídeo aceita somente IDs validados; não incorpora HTML arbitrário.
 
 ## Testar sem instalar ferramentas
 
@@ -23,7 +32,7 @@ A entrega `compasso-musica-real.html` é gerada por `npm run build:standalone` (
 
 O build único foi validado em Chromium servido por HTTP; a política do Chromium deste ambiente bloqueia navegação `file://`, portanto a abertura direta em Windows não foi verificada aqui.
 
-Para GitHub Pages, publique o HTML único renomeado como `index.html`. Em Settings → Pages selecione main e a pasta raiz. Alternativamente publique o conteúdo de `dist/` após `npm run build`. A branch `gh-pages` recebe o HTML pronto para publicação; em Settings → Pages, use Deploy from a branch, `gh-pages`, `/ (root)`. A branch `main` contém o código-fonte.
+Para GitHub Pages, publique o HTML único renomeado como `index.html`. Alternativamente publique o conteúdo de `dist/` após `npm run build`. A branch `gh-pages` recebe o HTML pronto para publicação; em Settings → Pages, use Deploy from a branch, `gh-pages`, `/ (root)`. A branch `main` contém o código-fonte.
 
 ## Desenvolver no Windows
 
@@ -59,7 +68,8 @@ Em outro ambiente: `npx playwright install chromium`, seguido de `npm run test:e
 
 ## Estrutura
 
-- `src/main.js`: biblioteca e demonstração.
+- `src/main.js`: biblioteca, demonstração e tela do YouTube.
+- `src/youtube.js` e `src/youtube.css`: player oficial incorporado e layout responsivo.
 - `src/real-session.js`: importação de gravação, reprodução e marcações reais.
 - `src/transcription.js`: interpretação de MIDI, tempo e validação.
 - `src/score-renderer.js`: notação VexFlow e posição do marcador.
