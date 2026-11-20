@@ -105,13 +105,14 @@ if (-not $existingContainer) {
 $healthy = $false
 for ($attempt = 0; $attempt -lt 40; $attempt++) {
     try {
-        $response = Invoke-WebRequest -Uri 'http://localhost:8000/api/health' -UseBasicParsing -TimeoutSec 2
-        if ($response.StatusCode -eq 200) { $healthy = $true; break }
-    } catch { Start-Sleep -Seconds 1 }
+        docker exec $containerName python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/health', timeout=2).read()" 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) { $healthy = $true; break }
+    } catch {}
+    Start-Sleep -Seconds 1
 }
 if (-not $healthy) {
     docker logs --tail 20 $containerName
-    Stop-WithMessage "O servidor nao respondeu em $url. Verifique o erro acima."
+    Stop-WithMessage 'O servidor nao iniciou dentro do Docker. Verifique o erro acima.'
 }
 
 try {
