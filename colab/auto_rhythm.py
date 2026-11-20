@@ -43,8 +43,15 @@ def export_aligned(notes, beats, output):
     coordinates = np.arange(len(beats)) + beats[0, 1] - 1
     notes = notes[np.argsort(notes[:, 0], kind='stable')]
     musical_positions = extrapolate(notes[:, 0], beats[:, 0], coordinates)
-    first = math.floor(float(np.min(musical_positions))/4) * 4
-    last = math.floor(float(np.max(musical_positions))/4) * 4 + 4
+    # Number bars from the recording's beginning, not from the first drum hit.
+    # Otherwise a 12-bar intro disappears and becomes a large playback offset.
+    # Retain pickup notes too, even if that requires a bar starting before zero.
+    epsilon = 1e-9
+    position_at_zero = float(extrapolate([0], beats[:, 0], coordinates)[0])
+    first_at_audio = math.ceil((position_at_zero-epsilon)/4) * 4
+    first_at_notes = math.floor((float(np.min(musical_positions))+epsilon)/4) * 4
+    first = min(first_at_audio, first_at_notes)
+    last = math.floor((float(np.max(musical_positions))+epsilon)/4) * 4 + 4
     if (last-first)//4 > 500:
         raise ValueError('A música excede o limite atual de 500 compassos do app.')
     boundaries = extrapolate(np.arange(first, last+1), coordinates, beats[:, 0])
@@ -91,6 +98,7 @@ def export_aligned(notes, beats, output):
     midi.save(output)
     return {'offset': offset, 'median_bpm': float(60/np.median(np.diff(beats[:, 0]))),
             'notes': len(notes), 'bars': (last-first)//4,
+            'leading_bars': (first_at_notes-first)//4,
             'extrapolated_notes': int(np.sum((notes[:, 0] < beats[0, 0]) | (notes[:, 0] > beats[-1, 0])))}
 
 
@@ -114,6 +122,8 @@ def detect_and_export(audio, transcription, output):
         {'source_audio': Path(audio).name, 'beats': beats.tolist(), **result}, indent=2))
     print(f"Andamento mediano estimado: {result['median_bpm']:.2f} BPM")
     print(f"MIDI pronto: {result['notes']} golpes · {result['bars']} compassos.")
+    if result['leading_bars']:
+        print(f"Introdução preservada: {result['leading_bars']} compassos antes do primeiro golpe.")
     print('Alinhamento incluído no MIDI. Importe-o no Compasso atualizado.')
     if result['extrapolated_notes']:
         print('Há golpes fora do trecho com pulsação detectada; a grade foi extrapolada nesses pontos.')
