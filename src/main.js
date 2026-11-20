@@ -61,19 +61,27 @@ function youtubeStudy(videoId) {
 function persist() { try { localStorage.setItem('compasso-links', JSON.stringify(saved)); return true; } catch { return false; } }
 function addDialog() {
   const dialog = document.createElement('dialog');
-  dialog.innerHTML = `<form><div class="dialog-head"><span class="eyebrow">NOVA MÚSICA</span><button type="button" class="close" aria-label="Fechar">×</button></div><h2>Qual é a próxima?</h2><p>Cole o link da música que você quer tocar.</p><label for="url">Link do YouTube</label><input id="url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=…" required autocomplete="off"><div class="info">Salve o link e toque em Reproduzir vídeo na biblioteca. O player do YouTube abre dentro do Compasso. Importe seu MIDI para acompanhar a partitura pelo vídeo. A transcrição por IA será adicionada depois.</div><p class="error" role="alert"></p><button class="primary" type="submit">${icon('plus')} Salvar link</button></form>`;
+  dialog.innerHTML = `<form><div class="dialog-head"><span class="eyebrow">NOVA MÚSICA</span><button type="button" class="close" aria-label="Fechar">×</button></div><h2>Qual é a próxima?</h2><p>Cole o link da música que você quer tocar.</p><label for="url">Link do YouTube</label><input id="url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=…" required autocomplete="off"><div class="info">Gere a partitura automaticamente ou salve o link para ouvir depois.</div><details class="generation-options"><summary>Ajustes opcionais</summary><label for="new-song-bpm">BPM conhecido (opcional)</label><input id="new-song-bpm" type="number" min="40" max="240" step="any" placeholder="Automático"><p>4/4 · escrita até semicolcheias. Colcheias e figuras maiores continuam disponíveis.</p></details><p class="error" role="alert"></p><button class="primary" type="submit">Gerar partitura</button><button class="generation-link save-link-only" type="button">Salvar link</button></form>`;
   document.body.append(dialog); dialog.showModal();
   dialog.querySelector('.close').onclick=()=>dialog.close(); dialog.onclose=()=>dialog.remove();
-  dialog.querySelector('form').onsubmit=e=>{
-    e.preventDefault(); const value=dialog.querySelector('input').value.trim(), id=youtubeId(value);
+  function saveLink(generate=false){
+    const value=dialog.querySelector('#url').value.trim(),id=youtubeId(value);
     const error=dialog.querySelector('.error');
-    if(!id) { error.textContent='Insira um link válido de vídeo do YouTube.'; return; }
-    if(saved.some(s=>youtubeId(s.url)===id)) { error.textContent='Essa música já está na biblioteca.'; return; }
-    if(saved.length >= 30) { error.textContent='Limite de 30 links neste protótipo. Remova um link para adicionar outro.'; return; }
-    saved.push({url:`https://www.youtube.com/watch?v=${id}`});
-    if(!persist()) { saved.pop(); error.textContent='Não foi possível salvar. Verifique se o navegador permite armazenamento local.'; return; }
-    dialog.close(); library();
-  };
+    if(!id){error.textContent='Insira um link válido de vídeo do YouTube.';return;}
+    const exists=saved.some(s=>youtubeId(s.url)===id);
+    if(exists&&!generate){error.textContent='Essa música já está na biblioteca.';return;}
+    if(!exists&&saved.length>=30){error.textContent='Limite de 30 links neste protótipo. Remova um link para adicionar outro.';return;}
+    if(!exists){
+      saved.push({url:`https://www.youtube.com/watch?v=${id}`});
+      if(!persist()){saved.pop();error.textContent='Não foi possível salvar. Verifique o armazenamento do navegador.';return;}
+    }
+    const bpmValue=dialog.querySelector('#new-song-bpm').value;
+    const bpm=bpmValue?Number(bpmValue):null;
+    dialog.close();library();
+    if(generate)import('./generation.js').then(m=>m.generateScore(id,{start:true,bpm,onReady:()=>youtubeStudy(id)})).catch(()=>alert('Não foi possível abrir a geração. Recarregue a página.'));
+  }
+  dialog.querySelector('.save-link-only').onclick=()=>saveLink(false);
+  dialog.querySelector('form').onsubmit=e=>{e.preventDefault();saveLink(true);};
 }
 function notation(bar) {
   let svg = `<svg class="notation" viewBox="0 0 400 112" role="img" aria-label="Compasso ${bar+1}: chimbal em colcheias, bumbo nos tempos 1 e 3, caixa nos tempos 2 e 4${bar===7?', com caixa adicional nos contratempos de 3 e 4':''}"><g stroke="currentColor" stroke-width=".8">`;

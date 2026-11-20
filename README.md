@@ -2,7 +2,7 @@
 
 App experimental de partitura de bateria para celular e computador. A prioridade é acompanhar a gravação original, com partitura, seções e referências de letra.
 
-## Estado atual — música real, sem transcrição automática
+## Estado atual — transcrição de bateria com processador pessoal
 
 - Importa MP3/WAV/OGG e outros formatos de áudio aceitos pelo navegador (até 80 MB e 30 minutos).
 - Importa MIDI de bateria correspondente à gravação: canal 10 General MIDI, 4/4, até 5 MB, 20 mil notas e aproximadamente 500 compassos.
@@ -11,11 +11,13 @@ App experimental de partitura de bateria para celular e computador. A prioridade
 - Visualização alternativa **Grade de bateria**, com fundo escuro, peças em linhas, golpes `x`/`o` e contagem de semicolcheias. A preferência fica salva por música; Partitura continua sendo o padrão.
 - Seletor de 1, 2 ou 4 compassos por linha, salvo por música neste navegador. Para 4 compassos no celular, prefira a orientação horizontal.
 - Permite marcar seções e pequenos trechos da letra manualmente nos tempos da gravação.
-- Salva áudio, MIDI interpretado e marcações localmente em IndexedDB. Não envia arquivos a terceiros. Os dados não sincronizam entre dispositivos e podem ser perdidos ao limpar os dados do navegador.
-- Salva links do YouTube e oferece **Reproduzir vídeo** dentro do app, pelo player oficial, sem downloader ou chave de API. Links salvos em versões anteriores continuam funcionando.
+- Salva MIDI interpretado, ajustes e marcações localmente em IndexedDB. Gravações importadas para reprodução local ficam no navegador. Ao solicitar geração automática, o link ou o áudio escolhido é enviado ao processador configurado. Os dados locais não sincronizam entre dispositivos e podem ser perdidos ao limpar os dados do navegador.
+- Salva links do YouTube e oferece **Reproduzir vídeo** dentro do app, pelo player oficial, sem precisar de chave da API do YouTube. Links salvos em versões anteriores continuam funcionando.
 - Mantém a demonstração sintetizada, os vídeos do YouTube e as músicas locais com MIDI em telas separadas.
 
-**Não há backend nem serviço de IA conectado.** O player do YouTube permite ouvir o vídeo, e sincronizar a partitura de um MIDI importado; não extrai áudio nem transcreve a bateria automaticamente. O MIDI deve ser produzido por uma ferramenta externa e corresponder à gravação. Sem MIDI, o app permite escutar o áudio e marcar seções, mas não inventa uma partitura.
+**A geração automática precisa de um processador na nuvem configurado.** O repositório inclui esse servidor: ADTOF identifica os golpes, madmom estima pulsação e início dos compassos, e o exportador mantém a introdução e o alinhamento no MIDI. O GitHub Pages hospeda a interface; sozinho não executa esses modelos. A hospedagem do processador não é criada automaticamente ao publicar o app. Veja [como ativar o processador](server/README.md).
+
+Na interface: **Nova música → colar link → Gerar partitura**. Deixe BPM automático ou informe um valor conhecido em **Ajustes opcionais**. A tela acompanha as etapas reais, permite cancelar e retomar uma análise em andamento. Se o YouTube não liberar o áudio, oferece envio de MP3/WAV da mesma gravação. Ao concluir, salva e abre a partitura junto ao vídeo. Uma falha na geração preserva a partitura anterior. A chave de acesso é solicitada ao conectar o processador e fica apenas na sessão da aba, fora do código publicado.
 
 A notação importada usa grade de semicolcheias; informa quantos ataques foram arredondados. Tercinas, microvariações, outros compassos e edição de notas ainda não estão disponíveis. Mudanças de andamento do MIDI são preservadas na sincronização. Arquivos sem indicação de compasso assumem 4/4 e exibem aviso. A precisão musical depende do arquivo importado; testes automatizados não demonstram qualidade de uma IA.
 
@@ -33,7 +35,7 @@ O menu **⋮** também reúne troca de MIDI, ajuste de sincronização em segund
 
 A sincronização usa a IFrame Player API oficial, com `enablejsapi=1` e `origin` do site. O app não adiciona controles de reprodução duplicados. Ao sair, destrói o player e interrompe a atualização do marcador. Se o YouTube ou sua API estiverem bloqueados, a partitura continua disponível, mas a sincronização depende da conexão com o player. Testes de integração usam uma API simulada; não comprovam streaming real do YouTube.
 
-O vídeo é carregado somente ao tocar em Reproduzir vídeo. O navegador então se conecta ao YouTube e usa seu player oficial. Não há yt-dlp, Deno, download de arquivos ou processamento de IA nesse fluxo. Autoplay pode ser bloqueado pelo navegador; nesse caso, toque no Play do próprio player. Vídeos privados, removidos ou com restrição à incorporação podem não funcionar dentro do app.
+O vídeo é carregado ao abrir a tela de estudo (por Reproduzir vídeo ou após gerar a partitura). O navegador então se conecta ao YouTube e usa seu player oficial. A reprodução usa apenas o player oficial. Quando você solicita a geração, o servidor usa yt-dlp/Deno para obter temporariamente o áudio e executar a IA; isso pode falhar em vídeos ou redes com restrições. O navegador não precisa baixar a música manualmente. Autoplay pode ser bloqueado pelo navegador; nesse caso, toque no Play do próprio player. Vídeos privados, removidos ou com restrição à incorporação podem não funcionar dentro do app.
 
 Use o site HTTPS publicado ou um servidor HTTP local. Abrir um HTML por `file://` pode não fornecer o Referer exigido pelo YouTube (erro 153). O iframe envia `strict-origin-when-cross-origin`, preserva os controles oficiais e tem altura mínima de 200px. A escolha do vídeo aceita somente IDs validados; não incorpora HTML arbitrário.
 
@@ -98,10 +100,13 @@ Em outro ambiente: `npx playwright install chromium`, seguido de `npm run test:e
 - `src/score-renderer.js`: notação VexFlow e posição do marcador.
 - `src/drum-grid.js`, `src/score-view.js` e `src/score-view.css`: grade por instrumento e alternância de visualização.
 - `src/session-store.js`: persistência local IndexedDB.
+- `src/generation.js`, `src/generation-api.js`: geração, conexão, progresso, retomada e alternativa de upload.
+- `server/`: API autenticada, fila de um processamento por vez, ADTOF/madmom e imagem Docker.
+- `render.yaml`: configuração revisável de implantação na nuvem; inclui plano pago e disco persistente.
 - `src/audio.js`, `src/music.js`: demonstração sintetizada.
 - `test/`, `e2e/`: testes de regras e de navegador.
 - `docs/avaliacao-ia.md`: comparação preliminar e plano de avaliação.
 
 ## Escolha da IA
 
-Ainda não há provedor contratado. Veja [avaliação de IA](docs/avaliacao-ia.md). O Omnizart consultado gera apenas três peças na saída atual de bateria; não atende sozinho a viradas completas. A oferta atual de uma API especializada como a Klangio precisa ser confirmada. Não foram presumidos preços, rotas de API ou níveis de precisão.
+O processador usa ADTOF para estes testes pessoais. A licença do projeto é CC BY-NC-SA 4.0; o uso comercial futuro exigirá reavaliação. A saída do modelo agrupa golpes em cinco famílias (bumbo, caixa, chimbal, toms e pratos); não identifica cada peça e articulação como uma transcrição humana completa. O reconhecimento de letra e seções ainda não faz parte da análise automática. A [avaliação de alternativas](docs/avaliacao-ia.md) permanece como referência exploratória, anterior a esta integração.

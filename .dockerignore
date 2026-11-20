@@ -1,0 +1,12 @@
+.git
+node_modules
+dist
+dist-single
+test-results
+playwright-report
+**/__pycache__
+*.mid
+*.wav
+*.mp3
+.env
+.env.*

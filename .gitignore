@@ -6,3 +6,8 @@ playwright-report/
 test-results/
 
 dist-single/
+
+__pycache__/
+.env
+.env.*
+!.env.example

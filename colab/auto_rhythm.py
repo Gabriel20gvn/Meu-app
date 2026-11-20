@@ -102,7 +102,7 @@ def export_aligned(notes, beats, output):
             'extrapolated_notes': int(np.sum((notes[:, 0] < beats[0, 0]) | (notes[:, 0] > beats[-1, 0])))}
 
 
-def detect_and_export(audio, transcription, output):
+def detect_and_export(audio, transcription, output, bpm_hint=None):
     import collections
     import collections.abc
     collections.MutableSequence = collections.abc.MutableSequence
@@ -112,8 +112,12 @@ def detect_and_export(audio, transcription, output):
     activations = RNNDownBeatProcessor(num_threads=1)(str(audio))
     if len(activations) < 500 or not np.isfinite(activations).all():
         raise ValueError('Áudio insuficiente para identificar os compassos.')
+    if bpm_hint is not None and (not math.isfinite(bpm_hint) or not 40 <= bpm_hint <= 240):
+        raise ValueError('Informe um BPM entre 40 e 240, ou deixe automático.')
+    lower = max(40, bpm_hint*.9) if bpm_hint is not None else 40
+    upper = min(240, bpm_hint*1.1) if bpm_hint is not None else 240
     beats = DBNDownBeatTrackingProcessor(beats_per_bar=[4], fps=100,
-                                        min_bpm=40, max_bpm=240, num_threads=1)(activations)
+                                        min_bpm=lower, max_bpm=upper, num_threads=1)(activations)
     if len(beats) < 8:
         raise ValueError('A análise não encontrou pulsação suficiente. Nenhum alinhamento foi aplicado.')
     notes = np.loadtxt(transcription, ndmin=2)

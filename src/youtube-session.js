@@ -2,6 +2,7 @@ import { loadYoutubeApi } from './youtube.js';
 import { parseDrumMidi, positionAt, offsetForImport } from './transcription.js';
 import { cursorX } from './score-renderer.js';
 import { drawScoreBar, scoreView, viewOptions } from './score-view.js';
+import { generateScore, connectProcessor } from './generation.js';
 import { getSession, saveSession } from './session-store.js';
 
 export async function openYoutubeSession(videoId, root, iframe) {
@@ -14,7 +15,7 @@ export async function openYoutubeSession(videoId, root, iframe) {
   let disposed=false, player, ready=false, observer, timer, active=-1, modal;
   const layouts=new Map();
   const content=root.querySelector('.youtube-content');
-  content.innerHTML='<p class="error youtube-error" role="alert"></p><button class="primary youtube-import">Importar MIDI de bateria</button><p class="score-view-hint" hidden>Grade: x = pratos/chimbal · o = tambores. Deslize para ver os compassos ao lado.</p><div class="youtube-score-scroll" tabindex="0" aria-label="Partitura de bateria"><div class="real-score-grid"></div></div>';
+  content.innerHTML='<p class="error youtube-error" role="alert"></p><button class="primary youtube-generation">Gerar partitura</button><button class="secondary youtube-import">Importar MIDI de bateria</button><p class="score-view-hint" hidden>Grade: x = pratos/chimbal · o = tambores. Deslize para ver os compassos ao lado.</p><div class="youtube-score-scroll" tabindex="0" aria-label="Partitura de bateria"><div class="real-score-grid"></div></div>';
   const error=content.querySelector('.youtube-error'), grid=content.querySelector('.real-score-grid');
   const viewport=content.querySelector('.youtube-score-scroll');
   const report=e=>{if(!disposed)error.textContent=e.message;};
@@ -33,6 +34,7 @@ export async function openYoutubeSession(videoId, root, iframe) {
   function renderScore() {
     observer?.disconnect();layouts.clear();active=-1;
     importButton.hidden=!!session.score;
+    content.querySelector('.youtube-generation').hidden=!!session.score;
     viewport.hidden=!session.score;
     grid.style.setProperty('--measures-per-row',session.measuresPerRow);
     grid.dataset.scoreView=session.scoreView;
@@ -76,10 +78,20 @@ export async function openYoutubeSession(videoId, root, iframe) {
     };
   }
   importButton.onclick=importMidi;
+  function generate(){
+    generateScore(videoId,{onReady:async()=>{
+      const updated=await getSession(session.id);
+      if(disposed||!updated)return;
+      session=updated;session.scoreView=scoreView(session.scoreView);renderScore();tick();
+    }});
+  }
+  content.querySelector('.youtube-generation').onclick=generate;
   const options=root.querySelector('.youtube-options');options.disabled=false;
   options.onclick=()=>{
-    const d=dialog(`<h2>Opções da música</h2><button class="secondary" id="youtube-replace">${session.score?'Trocar MIDI':'Importar MIDI'}</button><form><label for="youtube-view">Visualização</label><select id="youtube-view">${viewOptions(session.scoreView)}</select><label for="youtube-offset">Ajuste de sincronização (segundos)</label><input id="youtube-offset" type="number" min="-1800" max="1800" step="any" value="${session.offset}" required><p>Valor positivo atrasa a partitura. Use o MIDI da mesma versão da música.</p><label for="youtube-layout">Compassos por linha</label><select id="youtube-layout">${[1,2,4].map(n=>`<option ${n===session.measuresPerRow?'selected':''}>${n}</option>`).join('')}</select><label class="youtube-scroll-label"><input id="youtube-scroll" type="checkbox" ${session.autoScroll?'checked':''}> Rolagem automática</label><p class="youtube-score-info"></p><p class="error" role="alert"></p><button class="primary" type="submit">Salvar ajustes</button></form>`);
+    const d=dialog(`<h2>Opções da música</h2><button class="secondary" id="youtube-replace">${session.score?'Trocar MIDI':'Importar MIDI'}</button><button class="secondary" id="youtube-generate">${session.score?'Gerar novamente':'Gerar partitura'}</button><button class="generation-link" id="youtube-processor">Configurar processador</button><form><label for="youtube-view">Visualização</label><select id="youtube-view">${viewOptions(session.scoreView)}</select><label for="youtube-offset">Ajuste de sincronização (segundos)</label><input id="youtube-offset" type="number" min="-1800" max="1800" step="any" value="${session.offset}" required><p>Valor positivo atrasa a partitura. Use o MIDI da mesma versão da música.</p><label for="youtube-layout">Compassos por linha</label><select id="youtube-layout">${[1,2,4].map(n=>`<option ${n===session.measuresPerRow?'selected':''}>${n}</option>`).join('')}</select><label class="youtube-scroll-label"><input id="youtube-scroll" type="checkbox" ${session.autoScroll?'checked':''}> Rolagem automática</label><p class="youtube-score-info"></p><p class="error" role="alert"></p><button class="primary" type="submit">Salvar ajustes</button></form>`);
     d.querySelector('#youtube-replace').onclick=()=>{d.close();importMidi();};
+    d.querySelector('#youtube-generate').onclick=()=>{d.close();generate();};
+    d.querySelector('#youtube-processor').onclick=()=>{d.close();connectProcessor();};
     d.querySelector('.youtube-score-info').textContent=session.score?`${session.midiName} · ${session.score.bars.length} compassos · ${Math.round(session.score.tempo)} BPM${session.score.hasTempoChanges?' com mudanças de andamento':''}. Grade de semicolcheias: ${session.score.rounded} ataques arredondados. Tercinas e microvariações não são representadas fielmente.${session.score.suggestedOffset!==undefined?' Alinhamento automático recebido do MIDI.':''}${session.score.assumedMeter?' Compasso não informado no MIDI: assumido 4/4.':''}`:'Importe um MIDI para exibir a partitura.';
     d.querySelector('form').onsubmit=async e=>{
       e.preventDefault();const submit=d.querySelector('[type=submit]');submit.disabled=true;

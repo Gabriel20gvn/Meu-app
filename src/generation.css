@@ -1,0 +1,17 @@
+.generation-dialog { max-width:480px; }
+.generation-dialog h2 { margin-bottom:16px; }
+.generation-dialog p { font-size:13px; line-height:1.7; margin:12px 0; }
+.generation-dialog details { margin:18px 0; }
+.generation-dialog summary { cursor:pointer; font-size:13px; }
+.generation-link { background:none; display:block; color:#637558; font-size:12px; padding:14px 0; text-decoration:underline; }
+.generation-stages { list-style:none; padding:0; margin:20px 0; display:grid; gap:15px; }
+.generation-stages li { color:#798172; font-size:14px; }
+.generation-stages li::before { content:'○'; margin-right:10px; }
+.generation-stages li.done::before { content:'✓'; }
+.generation-stages li.current { color:#29402b; font-weight:700; }
+.generation-stages li.current::before { content:'●'; }
+.generation-dialog .generation-note { color:#77816c; font-size:12px; }
+.generation-upload { margin-top:24px; border-top:1px solid #dce0d5; padding-top:16px; }
+.generation-upload[hidden] { display:none; }
+.youtube-generation { margin-bottom:12px; }
+.youtube-content .youtube-import { margin-bottom:12px; }

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: compasso-ia
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    plan: standard
+    healthCheckPath: /api/health
+    envVars:
+      - key: COMPASSO_API_TOKEN
+        generateValue: true
+      - key: COMPASSO_ALLOWED_ORIGINS
+        value: https://gabriel20gvn.github.io
+      - key: COMPASSO_DATA_DIR
+        value: /data
+    disk:
+      name: compasso-jobs
+      mountPath: /data
+      sizeGB: 1
