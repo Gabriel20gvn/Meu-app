@@ -32,6 +32,14 @@ test('YouTube MIDI follows video time, seeks with offset, saves settings and rem
  await page.getByLabel('Arquivo MIDI').setInputFiles(midiFile(.149));await page.getByRole('button',{name:'Usar MIDI',exact:true}).click();
  await expect(page.locator('.real-measure')).toHaveCount(8);
  await expect(page.locator('.engraving svg').first()).toBeVisible();
+ await page.getByRole('button',{name:'Opções da música'}).click();
+ await page.getByRole('button',{name:'Letra por compasso'}).click();
+ await page.getByLabel('Compasso',{exact:true}).selectOption('1');
+ await page.getByLabel('Trecho da letra').fill('Chegou o refrão');
+ await page.getByRole('button',{name:'Salvar e próximo'}).click();
+ await page.getByRole('button',{name:'Fechar',exact:true}).click();
+ await expect(page.locator('[data-index="1"] .bar-lyric')).toHaveText('Chegou o refrão');
+ expect(await page.locator('[data-index="1"] .bar-lyric').evaluate(e=>e.getBoundingClientRect().bottom<e.nextElementSibling.getBoundingClientRect().top)).toBe(true);
  await expect(page.getByRole('button',{name:'Importar MIDI de bateria',exact:true})).toBeHidden();
  await expect(page.getByLabel('Compassos por linha')).toHaveCount(0);
  await page.evaluate(()=>{window.videoClock.time=4.2;});
@@ -45,6 +53,7 @@ test('YouTube MIDI follows video time, seeks with offset, saves settings and rem
  await page.getByRole('button',{name:'Salvar ajustes'}).click();
  await expect(page.locator('[data-index="1"]')).toHaveClass(/active/);
  await expect(page.locator('.drum-grid').first()).toBeVisible();
+ await expect(page.locator('[data-index="1"] .bar-lyric')).toHaveText('Chegou o refrão');
  expect(await page.evaluate(()=>window.videoClock.time)).toBe(4.2);
  expect(await page.evaluate(()=>window.videoClock.state)).toBe(2);
  const first=page.locator('[data-index="0"]');
@@ -72,6 +81,7 @@ test('YouTube MIDI follows video time, seeks with offset, saves settings and rem
  await expect(page.getByLabel('Compassos por linha')).toHaveValue('4');
  await expect(page.getByLabel('Visualização',{exact:true})).toHaveValue('grid');
  await expect(page.getByLabel('Rolagem automática')).not.toBeChecked();
+ await expect(page.locator('[data-index="1"] .bar-lyric')).toHaveText('Chegou o refrão');
  await page.getByRole('button',{name:'Fechar',exact:true}).click();
  for(const width of [320,390,844]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
  await page.setViewportSize({width:390,height:844});

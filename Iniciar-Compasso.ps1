@@ -59,13 +59,9 @@ if ($RedeLocal) {
     $hostPort = '0.0.0.0:8000:8000'
 }
 
-$images = @(docker images --format '{{.Repository}}:{{.Tag}}')
-if ($LASTEXITCODE -ne 0) { Stop-WithMessage 'Nao foi possivel consultar as imagens do Docker.' }
-if ($RedeLocal -or $images -notcontains $imageName) {
-    Write-Host 'Preparando a IA. Na primeira vez, o download e a instalacao podem demorar varios minutos...'
-    docker build -f server/Dockerfile -t $imageName .
-    if ($LASTEXITCODE -ne 0) { Stop-WithMessage 'A instalacao da IA falhou. Confira a conexao com a internet e o espaco livre no PC.' }
-}
+Write-Host 'Verificando a versao do aplicativo. O Docker reaproveita o que ja esta instalado...'
+docker build -f server/Dockerfile -t $imageName .
+if ($LASTEXITCODE -ne 0) { Stop-WithMessage 'A atualizacao da IA falhou. Confira a conexao com a internet e o espaco livre no PC.' }
 
 if ($existingContainer) {
     $publishedPorts = @(docker port $containerName '8000/tcp')

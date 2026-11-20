@@ -1,0 +1,14 @@
+.real-measure > .bar-lyric{display:block;text-align:left;margin:8px 4px 3px;padding:7px 9px;border-left:3px solid #89a96d;border-radius:3px;background:#f1f5ea;color:#304229;font-size:12px;font-weight:600;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere}
+.real-measure > .bar-lyric[hidden]{display:none}
+.real-measure.active > .bar-lyric{background:#e4efd8}
+[data-score-view="grid"] .real-measure > .bar-lyric{background:#303b30;color:#f4e7b9;border-color:#d1bc76}
+[data-score-view="grid"] .real-measure.active > .bar-lyric{background:#3a4734}
+.bar-lyrics-dialog{width:min(440px,calc(100vw - 32px))}
+.bar-lyrics-dialog form{display:grid;gap:10px}
+.bar-lyrics-dialog p{font-size:12px;line-height:1.6;color:#64715b}
+.bar-lyrics-dialog select,.bar-lyrics-dialog textarea{width:100%;font:inherit;border:1px solid #bbc9ac;border-radius:7px;padding:10px;background:#fff;color:#243127}
+.bar-lyrics-dialog select{min-height:44px}
+.bar-lyrics-dialog textarea{resize:vertical;min-height:92px}
+.bar-lyrics-navigation{display:flex;gap:8px}
+.bar-lyrics-navigation button{flex:1}
+.bar-lyrics-dialog button:disabled{opacity:.5;cursor:default}

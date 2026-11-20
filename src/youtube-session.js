@@ -4,6 +4,7 @@ import { cursorX } from './score-renderer.js';
 import { drawScoreBar, scoreView, viewOptions } from './score-view.js';
 import { generateScore, connectProcessor } from './generation.js';
 import { getSession, saveSession } from './session-store.js';
+import { openBarLyricsEditor, showBarLyrics } from './bar-lyrics.js';
 
 export async function openYoutubeSession(videoId, root, iframe) {
   let session = await getSession(`youtube:${videoId}`) ?? {
@@ -44,7 +45,7 @@ export async function openYoutubeSession(videoId, root, iframe) {
     for(const bar of session.score.bars){
       const button=document.createElement('button');button.className='real-measure';
       button.dataset.index=bar.index;button.setAttribute('aria-label',`Ir para compasso ${bar.index+1}`);
-      button.innerHTML=`<span>Compasso ${bar.index+1}</span><div class="engraving"><i class="real-playhead"></i></div>`;
+      button.innerHTML=`<span>Compasso ${bar.index+1}</span><span class="bar-lyric" hidden></span><div class="engraving"><i class="real-playhead"></i></div>`;
       button.onclick=()=>{
         if(!ready){report(new Error('Aguarde o player conectar. Se necessário, toque no Play do vídeo.'));return;}
         const time=Math.max(0,bar.start+session.offset),duration=player.getDuration();
@@ -53,6 +54,7 @@ export async function openYoutubeSession(videoId, root, iframe) {
       };
       grid.append(button);
     }
+    showBarLyrics(grid,session.barLyrics);
     observer=new IntersectionObserver(entries=>{
       for(const entry of entries)if(entry.isIntersecting){
         const b=entry.target,index=Number(b.dataset.index);
@@ -88,9 +90,14 @@ export async function openYoutubeSession(videoId, root, iframe) {
   content.querySelector('.youtube-generation').onclick=generate;
   const options=root.querySelector('.youtube-options');options.disabled=false;
   options.onclick=()=>{
-    const d=dialog(`<h2>Opções da música</h2><button class="secondary" id="youtube-replace">${session.score?'Trocar MIDI':'Importar MIDI'}</button><button class="secondary" id="youtube-generate">${session.score?'Gerar novamente':'Gerar partitura'}</button><button class="generation-link" id="youtube-processor">Configurar processador</button><form><label for="youtube-view">Visualização</label><select id="youtube-view">${viewOptions(session.scoreView)}</select><label for="youtube-offset">Ajuste de sincronização (segundos)</label><input id="youtube-offset" type="number" min="-1800" max="1800" step="any" value="${session.offset}" required><p>Valor positivo atrasa a partitura. Use o MIDI da mesma versão da música.</p><label for="youtube-layout">Compassos por linha</label><select id="youtube-layout">${[1,2,4].map(n=>`<option ${n===session.measuresPerRow?'selected':''}>${n}</option>`).join('')}</select><label class="youtube-scroll-label"><input id="youtube-scroll" type="checkbox" ${session.autoScroll?'checked':''}> Rolagem automática</label><p class="youtube-score-info"></p><p class="error" role="alert"></p><button class="primary" type="submit">Salvar ajustes</button></form>`);
+    const d=dialog(`<h2>Opções da música</h2><button class="secondary" id="youtube-replace">${session.score?'Trocar MIDI':'Importar MIDI'}</button><button class="secondary" id="youtube-generate">${session.score?'Gerar novamente':'Gerar partitura'}</button><button class="secondary" id="youtube-lyrics" ${session.score?'':'disabled'}>Letra por compasso</button><button class="generation-link" id="youtube-processor">Configurar processador</button><form><label for="youtube-view">Visualização</label><select id="youtube-view">${viewOptions(session.scoreView)}</select><label for="youtube-offset">Ajuste de sincronização (segundos)</label><input id="youtube-offset" type="number" min="-1800" max="1800" step="any" value="${session.offset}" required><p>Valor positivo atrasa a partitura. Use o MIDI da mesma versão da música.</p><label for="youtube-layout">Compassos por linha</label><select id="youtube-layout">${[1,2,4].map(n=>`<option ${n===session.measuresPerRow?'selected':''}>${n}</option>`).join('')}</select><label class="youtube-scroll-label"><input id="youtube-scroll" type="checkbox" ${session.autoScroll?'checked':''}> Rolagem automática</label><p class="youtube-score-info"></p><p class="error" role="alert"></p><button class="primary" type="submit">Salvar ajustes</button></form>`);
     d.querySelector('#youtube-replace').onclick=()=>{d.close();importMidi();};
     d.querySelector('#youtube-generate').onclick=()=>{d.close();generate();};
+    d.querySelector('#youtube-lyrics').onclick=()=>{
+      d.close();
+      openBarLyricsEditor({count:session.score.bars.length,lyrics:session.barLyrics,startIndex:Math.max(0,active),parent:root,
+        save:async barLyrics=>{await save({...session,barLyrics});if(!disposed)showBarLyrics(grid,session.barLyrics);}});
+    };
     d.querySelector('#youtube-processor').onclick=()=>{d.close();connectProcessor();};
     d.querySelector('.youtube-score-info').textContent=session.score?`${session.midiName} · ${session.score.bars.length} compassos · ${Math.round(session.score.tempo)} BPM${session.score.hasTempoChanges?' com mudanças de andamento':''}. Grade de semicolcheias: ${session.score.rounded} ataques arredondados. Tercinas e microvariações não são representadas fielmente.${session.score.suggestedOffset!==undefined?' Alinhamento automático recebido do MIDI.':''}${session.score.assumedMeter?' Compasso não informado no MIDI: assumido 4/4.':''}`:'Importe um MIDI para exibir a partitura.';
     d.querySelector('form').onsubmit=async e=>{

@@ -1,5 +1,6 @@
 import { drawBar } from './score-renderer.js';
 import { drawDrumGrid } from './drum-grid.js';
+import './bar-lyrics.css';
 import './score-view.css';
 
 export const scoreView = value => value === 'grid' ? 'grid' : 'notation';

@@ -18,6 +18,11 @@ test('real audio + MIDI renders, plays and persists score, offset and lyric cues
  await expect(page.getByRole('heading',{name:'Ensaio real',exact:true})).toBeVisible();
  await expect(page.locator('.real-measure')).toHaveCount(4);
  await expect(page.locator('.engraving svg').first()).toBeVisible();
+ await page.getByRole('button',{name:'Letra por compasso'}).click();
+ await page.getByLabel('Trecho da letra').fill('Primeira frase');
+ await page.getByRole('button',{name:'Salvar e próximo'}).click();
+ await page.getByRole('button',{name:'Fechar',exact:true}).click();
+ await expect(page.locator('[data-index="0"] .bar-lyric')).toHaveText('Primeira frase');
  const svgBox=await page.locator('.engraving svg').first().boundingBox();const measureBox=await page.locator('.real-measure').first().boundingBox();expect(svgBox.width).toBeLessThanOrEqual(measureBox.width);
  await expect(page.locator('#score-status')).toContainText('16 notas importadas');
  await expect(page.locator('#offset')).toHaveValue('0.149');
@@ -47,10 +52,12 @@ test('real audio + MIDI renders, plays and persists score, offset and lyric cues
  await page.locator('#real-library').getByRole('button',{name:'Abrir música'}).click();
  await expect(page.getByLabel('Compassos por linha',{exact:true})).toHaveValue('4');
  await expect(page.locator('#offset')).toHaveValue('1');await expect(page.getByRole('button',{name:'Refrão 0:03',exact:true})).toBeVisible();
+ await expect(page.locator('[data-index="0"] .bar-lyric')).toHaveText('Primeira frase');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  const view=page.getByLabel('Visualização',{exact:true});
  await view.selectOption('grid');await expect(view).toBeEnabled();
  await expect(page.locator('.drum-grid').first()).toBeVisible();
+ await expect(page.locator('[data-index="0"] .bar-lyric')).toHaveText('Primeira frase');
  const clock=await page.locator('audio').evaluate(a=>a.currentTime);
  await view.selectOption('notation');await expect(view).toBeEnabled();
  await expect(page.locator('.drum-grid')).toHaveCount(0);
