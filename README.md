@@ -59,7 +59,19 @@ O build único foi validado em Chromium servido por HTTP; a política do Chromiu
 
 Para GitHub Pages, publique o HTML único renomeado como `index.html`. Alternativamente publique o conteúdo de `dist/` após `npm run build`. A branch `gh-pages` recebe o HTML pronto para publicação; em Settings → Pages, use Deploy from a branch, `gh-pages`, `/ (root)`. A branch `main` contém o código-fonte.
 
-## Desenvolver no Windows
+## Usar no Windows
+
+### Testar a IA no próprio PC, sem servidor pago
+
+Instale o [Docker Desktop](https://www.docker.com/products/docker-desktop/) e aguarde ele terminar de iniciar. Baixe a branch `main` pelo GitHub (**Code → Download ZIP**), extraia o ZIP e abra a pasta que contém `Iniciar-Compasso.cmd` e `package.json`. Dê dois cliques em **Iniciar-Compasso.cmd**. A primeira execução instala os modelos e pode demorar vários minutos; as próximas apenas religam o processador.
+
+O script inicia o servidor somente no seu PC, em `http://localhost:8000`, abre a página no navegador e copia sua chave de acesso para a área de transferência. Cole essa chave no primeiro pedido de **Conectar processador**; o endereço local já vem preenchido. Depois use **Nova música → cole o link → Gerar partitura**. Se o YouTube bloquear a extração, envie MP3/WAV da mesma gravação. Não precisa instalar Node.js, Python ou ADTOF no Windows para esse caminho.
+
+A chave fica no arquivo `.env.local`, ignorado pelo Git. Guarde esse arquivo no PC e não envie a chave em mensagens. O Docker guarda os resultados temporários no volume `compasso-dados`; as partituras estudadas ficam no navegador. Dados salvos no site do GitHub Pages continuam naquele site: o navegador trata `localhost:8000` como uma biblioteca separada, então cole novamente o link da música que quiser testar localmente. O PC precisa estar ligado durante a análise e a reprodução pela página local. O celular exigirá uma etapa de acesso ao PC pela rede quando quisermos testá-lo.
+
+Para abrir novamente, inicie o Docker Desktop e dê dois cliques no mesmo arquivo. Se aparecer um erro, deixe a janela aberta e consulte a mensagem. O contêiner usa somente a porta local `127.0.0.1:8000`; não é aberto para a internet.
+
+### Desenvolver o código
 
 Instale Node.js 22.12+ (testado com 24.22.1). Baixe e extraia o ZIP do projeto. Abra a pasta extraída que contém `package.json`; clique na barra de endereço do Explorador, digite `powershell` e pressione Enter. Execute:
 

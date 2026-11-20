@@ -39,6 +39,8 @@ ADTOF é usado aqui para testes pessoais conforme sua licença [CC BY-NC-SA 4.0]
 
 ## Executar com Docker
 
+No Windows, o [iniciador incluido no projeto](../README.md) automatiza os comandos abaixo e abre o app no navegador.
+
 ```sh
 docker build -f server/Dockerfile -t compasso-ia .
 ```

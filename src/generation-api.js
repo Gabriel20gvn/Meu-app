@@ -3,7 +3,8 @@ const TOKEN_KEY='compasso-processor-token';
 export function processorConfig(){
   let endpoint='',token='';
   try {endpoint=localStorage.getItem(ENDPOINT_KEY)||'';token=sessionStorage.getItem(TOKEN_KEY)||'';}catch{}
-  endpoint=endpoint||import.meta.env.VITE_TRANSCRIPTION_API_URL||'';
+  const local=location.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(location.hostname)?(import.meta.env.DEV?`${location.protocol}//${location.hostname}:8000`:location.origin):'';
+  endpoint=endpoint||import.meta.env.VITE_TRANSCRIPTION_API_URL||local;
   return {endpoint,token};
 }
 export function normalizeEndpoint(value){
