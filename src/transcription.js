@@ -19,6 +19,18 @@ export function parseDrumMidi(bytes) {
   if (!(midi.header.ppq > 0 && midi.header.ppq <= 32767)) throw new Error('MIDI com divisão SMPTE não é suportado nesta versão.');
   if (midi.header.timeSignatures.some(s=>s.timeSignature[0]!==4 || s.timeSignature[1]!==4)) throw new Error('Esta versão aceita MIDI em 4/4. Outros compassos serão adicionados depois.');
   if (midi.header.tempos.some(t=>!Number.isFinite(t.bpm) || t.bpm<=0)) throw new Error('O mapa de andamento do MIDI é inválido.');
+  // Only our versioned marker at tick zero supplies an automatic audio offset.
+  // Ordinary MIDI files keep the session's existing manual adjustment.
+  const syncMarkers=midi.header.meta.filter(m=>m.type==='marker' && m.ticks===0 && m.text.startsWith('COMPASSO_SYNC_V1:'));
+  let suggestedOffset;
+  if(syncMarkers.length){
+    const values=syncMarkers.map(m=>{
+      const raw=m.text.slice('COMPASSO_SYNC_V1:'.length);
+      return /^-?\d+(?:\.\d+)?$/.test(raw)?Number(raw):NaN;
+    });
+    if(values.some(v=>!Number.isFinite(v)||Math.abs(v)>1800||v!==values[0]))throw new Error('O alinhamento automático deste MIDI é inválido. Exporte novamente pelo Colab.');
+    suggestedOffset=values[0];
+  }
   const tracks = midi.tracks.filter(t=>t.channel===9);
   const notes = tracks.flatMap(t=>t.notes).sort((a,b)=>a.ticks-b.ticks);
   if (!notes.length) throw new Error('Nenhuma bateria encontrada no canal MIDI 10 (General MIDI). Exporte a faixa de bateria nesse canal.');
@@ -44,8 +56,9 @@ export function parseDrumMidi(bytes) {
     if(!bars[bar].slots[slot].includes(n.midi))bars[bar].slots[slot].push(n.midi);
   }
   for(const bar of bars) bar.times=Array.from({length:17},(_,i)=>midi.header.ticksToSeconds(bar.index*barTicks+i*ppq/4));
-  return {bars, beats, rounded, noteCount:notes.length, pieces:[...new Set(notes.map(n=>n.midi))], tempo:midi.header.tempos[0]?.bpm??120, hasTempoChanges:midi.header.tempos.length>1, assumedMeter:!midi.header.timeSignatures.length};
+  return {bars, beats, rounded, noteCount:notes.length, pieces:[...new Set(notes.map(n=>n.midi))], tempo:midi.header.tempos[0]?.bpm??120, hasTempoChanges:midi.header.tempos.length>1, assumedMeter:!midi.header.timeSignatures.length, suggestedOffset};
 }
+export const offsetForImport=(score,previous=0)=>score?.suggestedOffset??previous;
 export function positionAt(score, audioTime, offset=0){
   const time=audioTime-offset;
   if(time<0)return null;

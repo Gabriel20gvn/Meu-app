@@ -1,8 +1,9 @@
 import {test,expect} from '@playwright/test';
 import MidiPackage from '@tonejs/midi';
 const {Midi}=MidiPackage;
-function midiFile(){
+function midiFile(offset){
  const midi=new Midi();midi.header.setTempo(120);midi.header.timeSignatures=[{ticks:0,timeSignature:[4,4]}];
+ if(offset!==undefined)midi.header.meta=[{type:'marker',ticks:0,text:`COMPASSO_SYNC_V1:${offset}`}];
  const track=midi.addTrack();track.channel=9;
  for(let i=0;i<32;i++)track.addNote({midi:i%2?38:36,time:i*.5,duration:.1,velocity:.8});
  for(const [midi,time] of [[42,0],[49,0],[46,.125],[54,.25],[56,.375]])track.addNote({midi,time,duration:.05,velocity:.8});
@@ -28,7 +29,7 @@ test('YouTube MIDI follows video time, seeks with offset, saves settings and rem
  await page.getByRole('button',{name:'Salvar link'}).click();
  await page.getByRole('button',{name:'Reproduzir vídeo',exact:true}).click();
  await page.getByRole('button',{name:'Importar MIDI de bateria',exact:true}).click();
- await page.getByLabel('Arquivo MIDI').setInputFiles(midiFile());await page.getByRole('button',{name:'Usar MIDI',exact:true}).click();
+ await page.getByLabel('Arquivo MIDI').setInputFiles(midiFile(.149));await page.getByRole('button',{name:'Usar MIDI',exact:true}).click();
  await expect(page.locator('.real-measure')).toHaveCount(8);
  await expect(page.locator('.engraving svg').first()).toBeVisible();
  await expect(page.getByRole('button',{name:'Importar MIDI de bateria',exact:true})).toBeHidden();
@@ -36,6 +37,7 @@ test('YouTube MIDI follows video time, seeks with offset, saves settings and rem
  await page.evaluate(()=>{window.videoClock.time=4.2;});
  await expect(page.locator('[data-index="2"]')).toHaveClass(/active/);
  await page.getByRole('button',{name:'Opções da música'}).click();
+ await expect(page.getByLabel('Ajuste de sincronização (segundos)')).toHaveValue('0.149');
  await page.getByLabel('Ajuste de sincronização (segundos)').fill('1');
  await page.getByLabel('Compassos por linha').selectOption('4');
  await page.getByLabel('Visualização',{exact:true}).selectOption('grid');
@@ -93,5 +95,19 @@ test('YouTube MIDI follows video time, seeks with offset, saves settings and rem
  await page.getByRole('button',{name:'Salvar ajustes'}).click();
  await expect(page.locator('.drum-grid').first()).toBeVisible();
  await page.screenshot({path:'/tmp/compasso-youtube-score.png',fullPage:true});
+ // A replacement from the automatic notebook supplies its own alignment.
+ await page.getByRole('button',{name:'Opções da música'}).click();
+ await page.getByRole('button',{name:'Trocar MIDI',exact:true}).click();
+ await page.getByLabel('Arquivo MIDI').setInputFiles(midiFile(-.123456));
+ await page.getByRole('button',{name:'Usar MIDI',exact:true}).click();
+ await expect(page.locator('dialog')).toHaveCount(0);
+ await page.getByRole('button',{name:'Opções da música'}).click();
+ await expect(page.getByLabel('Ajuste de sincronização (segundos)')).toHaveValue('-0.123456');
+ await page.getByRole('button',{name:'Salvar ajustes'}).click();
+ await expect(page.locator('dialog')).toHaveCount(0);
+ await page.getByRole('button',{name:'Minha biblioteca',exact:true}).click();
+ await page.reload();await page.getByRole('button',{name:'Reproduzir vídeo',exact:true}).click();
+ await page.getByRole('button',{name:'Opções da música'}).click();
+ await expect(page.getByLabel('Ajuste de sincronização (segundos)')).toHaveValue('-0.123456');
  expect(errors).toEqual([]);
 });

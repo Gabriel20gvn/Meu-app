@@ -1,4 +1,4 @@
-import { parseDrumMidi, positionAt, validateCues, DRUMS } from './transcription.js';
+import { parseDrumMidi, positionAt, validateCues, DRUMS, offsetForImport } from './transcription.js';
 import { saveSession, getSession, listSessions, deleteSession } from './session-store.js';
 import { cursorX } from './score-renderer.js';
 import { drawScoreBar, scoreView, viewOptions } from './score-view.js';
@@ -29,7 +29,7 @@ export function importSession(onSaved){
       const audio=d.querySelector('#audio-file').files[0],midi=d.querySelector('#midi-file').files[0];
       if(midi?.size>5*1024*1024)throw new Error('O MIDI deve ter até 5 MB.');
       const duration=await durationOf(audio),score=midi?parseDrumMidi(await midi.arrayBuffer()):null;
-      const session={id:crypto.randomUUID(),title:d.querySelector('#track-title').value.trim()||audio.name,audio,duration,score,midiName:midi?.name??'',offset:0,cues:[]};
+      const session={id:crypto.randomUUID(),title:d.querySelector('#track-title').value.trim()||audio.name,audio,duration,score,midiName:midi?.name??'',offset:offsetForImport(score),cues:[]};
       if(!d.isConnected)return;
       await saveSession(session);d.close();onSaved(session.id);
     } catch(e){if(d.isConnected)d.querySelector('.error').textContent=e.message;}
@@ -57,7 +57,7 @@ export async function openRealSession(id,root,onBack){
   <div class="real-audio"><audio controls preload="metadata" aria-label="Reprodução da gravação original"></audio><label><input id="real-loop" type="checkbox"> Repetir música</label></div><p class="error" id="session-error" role="alert"></p>
   <div class="session-actions"><button class="primary" id="add-cue">Marcar seção e letra</button><button class="secondary" id="replace-midi">${session.score?'Substituir':'Importar'} MIDI de bateria</button></div>
   <section class="cue-panel"><h2>Onde estou na música?</h2><p id="current-cue">Adicione marcações de Introdução, Verso, Refrão…</p><nav class="sections" id="real-cues" aria-label="Seções da música"></nav></section>
-  <div class="score-toolbar real-toolbar"><label>Ajuste de sincronização (segundos)<input id="offset" type="number" step="0.05" min="-1800" max="1800" value="${session.offset}"></label><label><input id="real-scroll" type="checkbox" checked> Rolagem automática</label></div><p class="muted sync-help">Valor positivo atrasa a partitura em relação ao áudio. As marcações de letra mantêm seus tempos na gravação.</p>
+  <div class="score-toolbar real-toolbar"><label>Ajuste de sincronização (segundos)<input id="offset" type="number" step="any" min="-1800" max="1800" value="${session.offset}"></label><label><input id="real-scroll" type="checkbox" checked> Rolagem automática</label></div><p class="muted sync-help">Valor positivo atrasa a partitura em relação ao áudio. As marcações de letra mantêm seus tempos na gravação.</p>
   <div class="score-layout-control"><label for="score-view">Visualização</label><select id="score-view">${viewOptions(session.scoreView)}</select><label for="measures-per-row">Compassos por linha</label><select id="measures-per-row" aria-describedby="layout-hint">${[1,2,4].map(n=>`<option value="${n}" ${session.measuresPerRow===n?'selected':''}>${n}</option>`).join('')}</select><span id="layout-hint">Para 4 compassos, experimente o celular na horizontal.</span></div>
   <p id="score-status" class="demo-notice"></p><div class="score-scroll" tabindex="0" aria-label="Partitura de bateria"><div id="real-score"></div></div><p id="real-legend" class="score-legend"></p></main><div class="real-current" role="status"><span id="real-time">0:00</span><strong id="real-location">Áudio pronto</strong><button id="real-toggle" class="primary">Reproduzir</button></div>`;
   const audio=root.querySelector('audio');audio.src=audioUrl;
@@ -110,10 +110,11 @@ export async function openRealSession(id,root,onBack){
     const score=session.score,container=root.querySelector('#real-score');
     root.querySelector('#offset').disabled=!score;
     layoutSelect.disabled=!score;viewSelect.disabled=!score;
+    root.querySelector('#offset').value=session.offset;
     container.dataset.scoreView=session.scoreView;
     root.querySelector('#layout-hint').textContent=session.scoreView==='grid'?'Na grade, deslize para ver os compassos ao lado.':'Para 4 compassos, experimente o celular na horizontal.';
     if(!score){container.innerHTML='';root.querySelector('#score-status').textContent='Sem partitura ainda. Importe um MIDI de bateria correspondente a este áudio. A geração automática por IA ainda não foi integrada.';return;}
-    root.querySelector('#score-status').textContent=`${score.noteCount} notas importadas · ${score.bars.length} compassos · ${Math.round(score.tempo)} BPM${score.hasTempoChanges?' com mudanças de andamento':''}. Notação em grade de semicolcheias; ${score.rounded} ataques arredondados. Tercinas e microvariações não são representadas fielmente nesta versão. O áudio original não é alterado.${score.assumedMeter?' MIDI sem indicação de compasso: assumido 4/4.':''}${score.bars.at(-1).end+session.offset>session.duration+1?' Atenção: a partitura termina depois do áudio; confira se os arquivos correspondem e ajuste a sincronização.':''}`;
+    root.querySelector('#score-status').textContent=`${score.noteCount} notas importadas · ${score.bars.length} compassos · ${Math.round(score.tempo)} BPM${score.hasTempoChanges?' com mudanças de andamento':''}. Notação em grade de semicolcheias; ${score.rounded} ataques arredondados. Tercinas e microvariações não são representadas fielmente nesta versão. O áudio original não é alterado.${score.suggestedOffset!==undefined?' Alinhamento automático recebido do MIDI.':''}${score.assumedMeter?' MIDI sem indicação de compasso: assumido 4/4.':''}${score.bars.at(-1).end+session.offset>session.duration+1?' Atenção: a partitura termina depois do áudio; confira se os arquivos correspondem e ajuste a sincronização.':''}`;
     container.className='real-score-grid';
     container.innerHTML=score.bars.map(b=>`<button class="real-measure" data-index="${b.index}" aria-label="Ir para compasso ${b.index+1}"><span>Compasso ${b.index+1}</span><div class="engraving"><i class="real-playhead"></i></div></button>`).join('');
     const render=element=>{const index=Number(element.dataset.index);if(!layouts.has(index)){try{layouts.set(index,drawScoreBar(element.querySelector('.engraving'),score.bars[index],session.scoreView,score.pieces));}catch(e){element.querySelector('.engraving').textContent='Não foi possível desenhar este compasso.';report(new Error('Falha ao renderizar a partitura.'));}}};
@@ -125,8 +126,8 @@ export async function openRealSession(id,root,onBack){
     const d=dialog('<form><h2>Importar transcrição</h2><p>MIDI de bateria General MIDI (canal 10), em 4/4, até 5 MB. Seções e letra serão preservadas.</p><label for="replacement-midi">Arquivo MIDI</label><input id="replacement-midi" type="file" accept=".mid,.midi" required><p class="error" role="alert"></p><button class="primary" type="submit">Usar esta transcrição</button></form>');
     d.querySelector('form').onsubmit=async e=>{
       e.preventDefault();const submit=d.querySelector('[type=submit]');submit.disabled=true;
-      const previous={score:session.score,midiName:session.midiName};
-      try{const file=d.querySelector('input').files[0];if(file.size>5*1024*1024)throw new Error('O MIDI deve ter até 5 MB.');session.score=parseDrumMidi(await file.arrayBuffer());session.midiName=file.name;await persist();d.close();if(!disposed){drawScore();root.querySelector('#replace-midi').textContent='Substituir MIDI de bateria';}}
+      const previous={score:session.score,midiName:session.midiName,offset:session.offset};
+      try{const file=d.querySelector('input').files[0];if(file.size>5*1024*1024)throw new Error('O MIDI deve ter até 5 MB.');session.score=parseDrumMidi(await file.arrayBuffer());session.midiName=file.name;session.offset=offsetForImport(session.score,session.offset);await persist();d.close();if(!disposed){drawScore();root.querySelector('#replace-midi').textContent='Substituir MIDI de bateria';}}
       catch(e){Object.assign(session,previous);d.querySelector('.error').textContent=e.message;}finally{submit.disabled=false;}
     };
   };

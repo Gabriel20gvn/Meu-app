@@ -1,16 +1,16 @@
 import {test,expect} from '@playwright/test';
 import MidiPackage from '@tonejs/midi';
 const {Midi}=MidiPackage;
-function files(){
+function files(offset){
  const rate=8000,duration=8,n=rate*duration,wav=Buffer.alloc(44+n*2);
  wav.write('RIFF');wav.writeUInt32LE(36+n*2,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(rate,24);wav.writeUInt32LE(rate*2,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(n*2,40);
  for(let i=0;i<n;i++)wav.writeInt16LE(Math.round(Math.sin(2*Math.PI*220*i/rate)*1000),44+i*2);
- const midi=new Midi();midi.header.setTempo(120);midi.header.timeSignatures=[{ticks:0,timeSignature:[4,4]}];const t=midi.addTrack();t.channel=9;
+ const midi=new Midi();if(offset!==undefined)midi.header.meta=[{type:'marker',ticks:0,text:`COMPASSO_SYNC_V1:${offset}`}];midi.header.setTempo(120);midi.header.timeSignatures=[{ticks:0,timeSignature:[4,4]}];const t=midi.addTrack();t.channel=9;
  for(let i=0;i<16;i++)t.addNote({midi:i%2?38:36,time:i*.5,duration:.1,velocity:.7});
  return {audio:{name:'gravação.wav',mimeType:'audio/wav',buffer:wav},midi:{name:'bateria.mid',mimeType:'audio/midi',buffer:Buffer.from(midi.toArray())}};
 }
 test('real audio + MIDI renders, plays and persists score, offset and lyric cues',async({page})=>{
- const errors=[];page.on('pageerror',e=>errors.push(e.message));const f=files();await page.goto('/');
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));const f=files(.149);await page.goto('/');
  await page.getByRole('button',{name:'Importar áudio e MIDI',exact:true}).click();
  await page.getByLabel('Nome da música').fill('Ensaio real');
  await page.locator('#audio-file').setInputFiles(f.audio);await page.locator('#midi-file').setInputFiles(f.midi);
@@ -20,6 +20,7 @@ test('real audio + MIDI renders, plays and persists score, offset and lyric cues
  await expect(page.locator('.engraving svg').first()).toBeVisible();
  const svgBox=await page.locator('.engraving svg').first().boundingBox();const measureBox=await page.locator('.real-measure').first().boundingBox();expect(svgBox.width).toBeLessThanOrEqual(measureBox.width);
  await expect(page.locator('#score-status')).toContainText('16 notas importadas');
+ await expect(page.locator('#offset')).toHaveValue('0.149');
  await page.locator('#real-toggle').click();await expect(page.locator('#real-time')).not.toHaveText('0:00');await page.locator('#real-toggle').click();
  const layout=page.getByLabel('Compassos por linha',{exact:true});
  await expect(layout).toHaveValue('1');
@@ -63,9 +64,10 @@ test('real audio + MIDI renders, plays and persists score, offset and lyric cues
  await page.screenshot({path:'/tmp/compasso-real-mobile.png',fullPage:true});expect(errors).toEqual([]);
 });
 test('audio alone never fabricates a score; invalid MIDI can be corrected',async({page})=>{
- const f=files();await page.goto('/');await page.getByRole('button',{name:'Importar áudio e MIDI',exact:true}).click();
+ const f=files(-.123456);await page.goto('/');await page.getByRole('button',{name:'Importar áudio e MIDI',exact:true}).click();
  await page.locator('#audio-file').setInputFiles(f.audio);await page.locator('#midi-file').setInputFiles({name:'bad.mid',mimeType:'audio/midi',buffer:Buffer.from('invalid')});await page.getByRole('button',{name:'Abrir música',exact:true}).click();await expect(page.locator('dialog .error')).toContainText('inválido');
  await page.locator('#midi-file').setInputFiles([]);await page.getByRole('button',{name:'Abrir música',exact:true}).click();
  await expect(page.locator('#score-status')).toContainText('Sem partitura');await expect(page.locator('.real-measure')).toHaveCount(0);
  await page.getByRole('button',{name:'Importar MIDI de bateria',exact:true}).click();await page.locator('#replacement-midi').setInputFiles(f.midi);await page.getByRole('button',{name:'Usar esta transcrição'}).click();await expect(page.locator('.real-measure')).toHaveCount(4);
+ await expect(page.locator('#offset')).toHaveValue('-0.123456');
 });

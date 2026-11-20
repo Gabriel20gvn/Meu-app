@@ -37,6 +37,16 @@ O vídeo é carregado somente ao tocar em Reproduzir vídeo. O navegador então 
 
 Use o site HTTPS publicado ou um servidor HTTP local. Abrir um HTML por `file://` pode não fornecer o Referer exigido pelo YouTube (erro 153). O iframe envia `strict-origin-when-cross-origin`, preserva os controles oficiais e tem altura mínima de 200px. A escolha do vídeo aceita somente IDs validados; não incorpora HTML arbitrário.
 
+## Colab com alinhamento automático
+
+Abra [ADTOF automático no Colab](https://colab.research.google.com/github/Gabriel20gvn/Meu-app/blob/main/colab/ADTOF-automatico.ipynb) e salve uma cópia no Drive. Execute as quatro células: instalar, enviar MP3/WAV, transcrever bateria e analisar/exportar. A quarta célula usa o rastreador de batidas e inícios de compasso do madmom em 4/4. Não há campos obrigatórios de BPM, fator ou início do compasso. O ADTOF continua produzindo os golpes; o rastreador musical produz a grade temporal.
+
+O MIDI contém mudanças de andamento para preservar os tempos das batidas detectadas e o marcador `COMPASSO_SYNC_V1:<segundos>` no tick zero da primeira faixa. Ao importar ou substituir esse MIDI, o app aplica o alinhamento automaticamente em sessões de YouTube e áudio local. MIDI convencional sem esse marcador preserva o ajuste manual existente (zero em uma nova sessão). O menu continua permitindo correções quando necessárias.
+
+Use a mesma gravação **com o mesmo início** do vídeo. O alinhamento do MIDI se refere ao áudio enviado ao Colab; ele não reconhece introduções diferentes entre arquivos. A detecção é uma estimativa em 4/4, pode interpretar pulsação/compasso de forma errada, e não garante correção para todos os gêneros. Notas fora do intervalo rastreado são mantidas mediante extrapolação dos primeiros/últimos intervalos. Notas não são deslocadas pelo exportador: sua posição temporal é preservada até a resolução do MIDI. A visualização no app continua quantizando para semicolcheias.
+
+`colab/auto_rhythm.py` contém o rastreador/exportador embutido no notebook. Os testes Python (`python -m unittest discover -s colab -p 'test_*.py'`, no ambiente do notebook) verificam mudanças de andamento, notas anteriores à grade, offsets positivos/negativos e preservação dos tempos. Também foi executado um teste de rastreamento com áudio sintético; isso não comprova precisão em músicas reais.
+
 ## Testar sem instalar ferramentas
 
 A entrega `compasso-musica-real.html` é gerada por `npm run build:standalone` (resultado em `dist-single/index.html`). Abra esse arquivo no Chrome/Edge e selecione **Importar áudio e MIDI**. O MIDI é opcional para testar áudio e marcações. Use arquivos próprios ou autorizados. Fontes visuais externas são opcionais; o app possui fallback.

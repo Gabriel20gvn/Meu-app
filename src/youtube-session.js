@@ -1,5 +1,5 @@
 import { loadYoutubeApi } from './youtube.js';
-import { parseDrumMidi, positionAt } from './transcription.js';
+import { parseDrumMidi, positionAt, offsetForImport } from './transcription.js';
 import { cursorX } from './score-renderer.js';
 import { drawScoreBar, scoreView, viewOptions } from './score-view.js';
 import { getSession, saveSession } from './session-store.js';
@@ -68,7 +68,7 @@ export async function openYoutubeSession(videoId, root, iframe) {
         if(!file||file.size>5*1024*1024)throw new Error('Selecione um MIDI de até 5 MB.');
         const score=parseDrumMidi(await file.arrayBuffer());
         if(disposed||!d.open)return;
-        await save({...session,score,midiName:file.name});
+        await save({...session,score,midiName:file.name,offset:offsetForImport(score,session.offset)});
         if(disposed)return;
         d.close();renderScore();
       }catch(e){d.querySelector('.error').textContent=e.message;}
@@ -78,9 +78,9 @@ export async function openYoutubeSession(videoId, root, iframe) {
   importButton.onclick=importMidi;
   const options=root.querySelector('.youtube-options');options.disabled=false;
   options.onclick=()=>{
-    const d=dialog(`<h2>Opções da música</h2><button class="secondary" id="youtube-replace">${session.score?'Trocar MIDI':'Importar MIDI'}</button><form><label for="youtube-view">Visualização</label><select id="youtube-view">${viewOptions(session.scoreView)}</select><label for="youtube-offset">Ajuste de sincronização (segundos)</label><input id="youtube-offset" type="number" min="-1800" max="1800" step="0.01" value="${session.offset}" required><p>Valor positivo atrasa a partitura. Use o MIDI da mesma versão da música.</p><label for="youtube-layout">Compassos por linha</label><select id="youtube-layout">${[1,2,4].map(n=>`<option ${n===session.measuresPerRow?'selected':''}>${n}</option>`).join('')}</select><label class="youtube-scroll-label"><input id="youtube-scroll" type="checkbox" ${session.autoScroll?'checked':''}> Rolagem automática</label><p class="youtube-score-info"></p><p class="error" role="alert"></p><button class="primary" type="submit">Salvar ajustes</button></form>`);
+    const d=dialog(`<h2>Opções da música</h2><button class="secondary" id="youtube-replace">${session.score?'Trocar MIDI':'Importar MIDI'}</button><form><label for="youtube-view">Visualização</label><select id="youtube-view">${viewOptions(session.scoreView)}</select><label for="youtube-offset">Ajuste de sincronização (segundos)</label><input id="youtube-offset" type="number" min="-1800" max="1800" step="any" value="${session.offset}" required><p>Valor positivo atrasa a partitura. Use o MIDI da mesma versão da música.</p><label for="youtube-layout">Compassos por linha</label><select id="youtube-layout">${[1,2,4].map(n=>`<option ${n===session.measuresPerRow?'selected':''}>${n}</option>`).join('')}</select><label class="youtube-scroll-label"><input id="youtube-scroll" type="checkbox" ${session.autoScroll?'checked':''}> Rolagem automática</label><p class="youtube-score-info"></p><p class="error" role="alert"></p><button class="primary" type="submit">Salvar ajustes</button></form>`);
     d.querySelector('#youtube-replace').onclick=()=>{d.close();importMidi();};
-    d.querySelector('.youtube-score-info').textContent=session.score?`${session.midiName} · ${session.score.bars.length} compassos · ${Math.round(session.score.tempo)} BPM${session.score.hasTempoChanges?' com mudanças de andamento':''}. Grade de semicolcheias: ${session.score.rounded} ataques arredondados. Tercinas e microvariações não são representadas fielmente.${session.score.assumedMeter?' Compasso não informado no MIDI: assumido 4/4.':''}`:'Importe um MIDI para exibir a partitura.';
+    d.querySelector('.youtube-score-info').textContent=session.score?`${session.midiName} · ${session.score.bars.length} compassos · ${Math.round(session.score.tempo)} BPM${session.score.hasTempoChanges?' com mudanças de andamento':''}. Grade de semicolcheias: ${session.score.rounded} ataques arredondados. Tercinas e microvariações não são representadas fielmente.${session.score.suggestedOffset!==undefined?' Alinhamento automático recebido do MIDI.':''}${session.score.assumedMeter?' Compasso não informado no MIDI: assumido 4/4.':''}`:'Importe um MIDI para exibir a partitura.';
     d.querySelector('form').onsubmit=async e=>{
       e.preventDefault();const submit=d.querySelector('[type=submit]');submit.disabled=true;
       try{
