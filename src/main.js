@@ -45,22 +45,23 @@ function library() {
   document.querySelectorAll('.remove').forEach(b=>b.onclick=()=>{ saved=saved.filter(s=>youtubeId(s.url)!==b.dataset.id); persist(); library(); });
 }
 function youtubeStudy(videoId) {
-  // Construct the validated player before replacing the current screen.
   const iframe = createYoutubePlayer(videoId);
   player.pause(); realDispose?.(); realDispose=null; view='youtube';
-  shell(`<main class="study youtube-study"><button class="back">${icon('back')} Minha biblioteca</button><div class="study-heading"><div><span class="eyebrow">OUÇA NO COMPASSO</span><h1>Vídeo do YouTube</h1><p>Player oficial · sem baixar um arquivo de áudio</p></div><span class="study-icon">${icon('headphones')}</span></div>
-  <div class="youtube-player"></div>
-  <div class="youtube-actions"><a class="primary" href="https://www.youtube.com/watch?v=${escape(videoId)}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ${icon('arrow')}</a><p class="youtube-help">Se a reprodução não começar, toque no ▶ do player. Alguns vídeos só permitem assistir no YouTube; nesse caso, use o botão ao lado.</p></div>
-  <p class="demo-notice">Nesta tela você pode ouvir o vídeo. A geração da partitura por IA e a sincronização de MIDI com o YouTube ainda não estão disponíveis.</p></main>`);
-  document.querySelector('.youtube-player').append(iframe);
-  // Removing the iframe on navigation also stops playback.
-  document.querySelector('.back').onclick=library;
+  shell(`<main class="study youtube-study"><div class="youtube-heading"><button class="back">${icon('back')} Minha biblioteca</button><h1>Vídeo do YouTube</h1><button class="youtube-options" aria-label="Opções da música" disabled>⋮</button></div><div class="youtube-player"></div><div class="youtube-content"><p class="muted">Carregando partitura…</p></div><a class="youtube-fallback" href="https://www.youtube.com/watch?v=${escape(videoId)}" target="_blank" rel="noopener noreferrer">Abrir no YouTube ↗</a></main>`);
+  const root=document.querySelector('.youtube-study');
+  root.querySelector('.youtube-player').append(iframe);
+  root.querySelector('.back').onclick=library;
+  import('./youtube-session.js').then(async m=>{
+    if(!root.isConnected)return;
+    const dispose=await m.openYoutubeSession(videoId,root,iframe);
+    if(root.isConnected)realDispose=dispose;else dispose?.();
+  }).catch(()=>{if(root.isConnected)root.querySelector('.youtube-content').textContent='Não foi possível abrir a partitura. Volte à biblioteca e tente novamente.';});
   window.scrollTo(0,0);
 }
 function persist() { try { localStorage.setItem('compasso-links', JSON.stringify(saved)); return true; } catch { return false; } }
 function addDialog() {
   const dialog = document.createElement('dialog');
-  dialog.innerHTML = `<form><div class="dialog-head"><span class="eyebrow">NOVA MÚSICA</span><button type="button" class="close" aria-label="Fechar">×</button></div><h2>Qual é a próxima?</h2><p>Cole o link da música que você quer tocar.</p><label for="url">Link do YouTube</label><input id="url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=…" required autocomplete="off"><div class="info">Salve o link e toque em Reproduzir vídeo na biblioteca. O player do YouTube abre dentro do Compasso. A transcrição por IA e o acompanhamento da partitura pelo vídeo ainda não estão disponíveis.</div><p class="error" role="alert"></p><button class="primary" type="submit">${icon('plus')} Salvar link</button></form>`;
+  dialog.innerHTML = `<form><div class="dialog-head"><span class="eyebrow">NOVA MÚSICA</span><button type="button" class="close" aria-label="Fechar">×</button></div><h2>Qual é a próxima?</h2><p>Cole o link da música que você quer tocar.</p><label for="url">Link do YouTube</label><input id="url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=…" required autocomplete="off"><div class="info">Salve o link e toque em Reproduzir vídeo na biblioteca. O player do YouTube abre dentro do Compasso. Importe seu MIDI para acompanhar a partitura pelo vídeo. A transcrição por IA será adicionada depois.</div><p class="error" role="alert"></p><button class="primary" type="submit">${icon('plus')} Salvar link</button></form>`;
   document.body.append(dialog); dialog.showModal();
   dialog.querySelector('.close').onclick=()=>dialog.close(); dialog.onclose=()=>dialog.remove();
   dialog.querySelector('form').onsubmit=e=>{

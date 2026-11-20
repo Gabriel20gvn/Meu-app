@@ -14,13 +14,19 @@ App experimental de partitura de bateria para celular e computador. A prioridade
 - Salva links do YouTube e oferece **Reproduzir vídeo** dentro do app, pelo player oficial, sem downloader ou chave de API. Links salvos em versões anteriores continuam funcionando.
 - Mantém a demonstração sintetizada, os vídeos do YouTube e as músicas locais com MIDI em telas separadas.
 
-**Não há backend nem serviço de IA conectado.** O player do YouTube permite ouvir o vídeo, mas não extrai áudio nem gera ou sincroniza uma partitura. O MIDI deve ser produzido por uma ferramenta externa e corresponder à gravação. Sem MIDI, o app permite escutar o áudio e marcar seções, mas não inventa uma partitura.
+**Não há backend nem serviço de IA conectado.** O player do YouTube permite ouvir o vídeo, e sincronizar a partitura de um MIDI importado; não extrai áudio nem transcreve a bateria automaticamente. O MIDI deve ser produzido por uma ferramenta externa e corresponder à gravação. Sem MIDI, o app permite escutar o áudio e marcar seções, mas não inventa uma partitura.
 
 A notação importada usa grade de semicolcheias; informa quantos ataques foram arredondados. Tercinas, microvariações, outros compassos e edição de notas ainda não estão disponíveis. Mudanças de andamento do MIDI são preservadas na sincronização. Arquivos sem indicação de compasso assumem 4/4 e exibem aviso. A precisão musical depende do arquivo importado; testes automatizados não demonstram qualidade de uma IA.
 
-## Reproduzir um link do YouTube
+## YouTube com partitura MIDI
 
 Na versão publicada: **Nova música → cole o link → Salvar link → Reproduzir vídeo**. Os controles nativos do YouTube incluem play, pausa, busca, volume e tela cheia. A página mantém **Abrir no YouTube** como alternativa. Ao voltar à biblioteca, o iframe é removido e a reprodução para.
+
+Após abrir o vídeo, toque em **Importar MIDI de bateria** e selecione o `.mid` ou `.midi` da mesma gravação. O botão dá lugar à partitura. O relógio do player oficial guia o destaque dos compassos, inclusive após buscar ou pausar pelo YouTube; tocar em um compasso busca esse momento no vídeo. A partitura tem rolagem própria para manter o vídeo visível.
+
+O menu **⋮** reúne troca de MIDI, ajuste de sincronização em segundos, 1/2/4 compassos por linha e rolagem automática. O MIDI interpretado e esses ajustes ficam associados ao ID do vídeo em IndexedDB neste navegador, separados das gravações locais. Um deslocamento positivo atrasa a partitura; versões diferentes da música podem exigir outro MIDI. A tela do YouTube ainda não oferece marcações de seção/letra nem loop de trecho.
+
+A sincronização usa a IFrame Player API oficial, com `enablejsapi=1` e `origin` do site. O app não adiciona controles de reprodução duplicados. Ao sair, destrói o player e interrompe a atualização do marcador. Se o YouTube ou sua API estiverem bloqueados, a partitura continua disponível, mas a sincronização depende da conexão com o player. Testes de integração usam uma API simulada; não comprovam streaming real do YouTube.
 
 O vídeo é carregado somente ao tocar em Reproduzir vídeo. O navegador então se conecta ao YouTube e usa seu player oficial. Não há yt-dlp, Deno, download de arquivos ou processamento de IA nesse fluxo. Autoplay pode ser bloqueado pelo navegador; nesse caso, toque no Play do próprio player. Vídeos privados, removidos ou com restrição à incorporação podem não funcionar dentro do app.
 
@@ -69,7 +75,7 @@ Em outro ambiente: `npx playwright install chromium`, seguido de `npm run test:e
 ## Estrutura
 
 - `src/main.js`: biblioteca, demonstração e tela do YouTube.
-- `src/youtube.js` e `src/youtube.css`: player oficial incorporado e layout responsivo.
+- `src/youtube.js`, `src/youtube-session.js` e `src/youtube.css`: player oficial, importação MIDI, sincronização e layout responsivo.
 - `src/real-session.js`: importação de gravação, reprodução e marcações reais.
 - `src/transcription.js`: interpretação de MIDI, tempo e validação.
 - `src/score-renderer.js`: notação VexFlow e posição do marcador.

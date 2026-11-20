@@ -2,6 +2,10 @@ import {test, expect} from '@playwright/test';
 
 const videoId = 'dQw4w9WgXcQ';
 const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1`;
+test.beforeEach(async ({page}) => {
+  await page.route('https://www.youtube.com/iframe_api', route=>route.fulfill({contentType:'text/javascript',body:''}));
+});
+
 const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
 async function saveYoutubeLink(page) {
@@ -34,7 +38,10 @@ test('saved YouTube link opens an embedded player, fits mobile and stops on retu
   await expect(study.getByRole('heading', {name: 'Vídeo do YouTube', exact: true})).toBeVisible();
   await expect(page.locator('iframe')).toHaveCount(1);
   await expect(iframe).toHaveAttribute('title', 'Reprodutor de vídeo do YouTube');
-  await expect(iframe).toHaveAttribute('src', embedUrl);
+  const src=new URL(await iframe.getAttribute('src'));
+  expect(src.pathname).toBe(`/embed/${videoId}`);
+  expect(src.searchParams.get('enablejsapi')).toBe('1');
+  expect(src.searchParams.get('origin')).toBe(new URL(page.url()).origin);
   await expect(iframe).toHaveAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
   expect(await iframe.evaluate(element => element.allowFullscreen)).toBe(true);
   await expect(page.frameLocator('.youtube-player iframe').getByText('Simulated YouTube embed')).toBeVisible();
@@ -61,7 +68,7 @@ test('a blocked embed keeps the direct YouTube fallback available', async ({page
   await page.route('https://www.youtube.com/embed/**', route => route.abort('failed'));
   await saveYoutubeLink(page);
   const blockedEmbed = page.waitForEvent('requestfailed', {
-    predicate: request => request.url() === embedUrl,
+    predicate: request => request.url().startsWith(embedUrl),
   });
   await page.getByRole('button', {name: 'Reproduzir vídeo', exact: true}).click();
   await blockedEmbed;

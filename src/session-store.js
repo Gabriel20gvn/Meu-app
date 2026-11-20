@@ -22,7 +22,7 @@ export async function listSessions(){
   const db=await database();
   return new Promise((resolve,reject)=>{
     const out=[],tx=db.transaction('sessions'),req=tx.objectStore('sessions').openCursor();
-    req.onsuccess=()=>{const cursor=req.result;if(cursor){const {id,title,duration,score}=cursor.value;out.push({id,title,duration,hasScore:!!score});cursor.continue();}};
+    req.onsuccess=()=>{const cursor=req.result;if(cursor){if(cursor.value.kind==='youtube'){cursor.continue();return;}const {id,title,duration,score}=cursor.value;out.push({id,title,duration,hasScore:!!score});cursor.continue();}};
     tx.oncomplete=()=>resolve(out);tx.onerror=()=>reject(new Error('Não foi possível carregar a biblioteca local.'));
   });
 }
