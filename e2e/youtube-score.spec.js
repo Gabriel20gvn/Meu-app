@@ -5,6 +5,7 @@ function midiFile(){
  const midi=new Midi();midi.header.setTempo(120);midi.header.timeSignatures=[{ticks:0,timeSignature:[4,4]}];
  const track=midi.addTrack();track.channel=9;
  for(let i=0;i<32;i++)track.addNote({midi:i%2?38:36,time:i*.5,duration:.1,velocity:.8});
+ for(const [midi,time] of [[42,0],[49,0],[46,.125],[54,.25],[56,.375]])track.addNote({midi,time,duration:.05,velocity:.8});
  return {name:'bateria.mid',mimeType:'audio/midi',buffer:Buffer.from(midi.toArray())};
 }
 test('YouTube MIDI follows video time, seeks with offset, saves settings and remains separate from audio',async({page})=>{
@@ -37,9 +38,20 @@ test('YouTube MIDI follows video time, seeks with offset, saves settings and rem
  await page.getByRole('button',{name:'Opções da música'}).click();
  await page.getByLabel('Ajuste de sincronização (segundos)').fill('1');
  await page.getByLabel('Compassos por linha').selectOption('4');
+ await page.getByLabel('Visualização',{exact:true}).selectOption('grid');
  await page.getByLabel('Rolagem automática').uncheck();
  await page.getByRole('button',{name:'Salvar ajustes'}).click();
  await expect(page.locator('[data-index="1"]')).toHaveClass(/active/);
+ await expect(page.locator('.drum-grid').first()).toBeVisible();
+ expect(await page.evaluate(()=>window.videoClock.time)).toBe(4.2);
+ expect(await page.evaluate(()=>window.videoClock.state)).toBe(2);
+ const first=page.locator('[data-index="0"]');
+ const simultaneous=first.locator('.grid-hit[data-slot="0"]');
+ await expect(simultaneous).toHaveCount(3);
+ expect(new Set(await simultaneous.evaluateAll(es=>es.map(e=>e.getAttribute('x')))).size).toBe(1);
+ await expect(first.locator('.grid-hit[data-slot="1"][data-pitches="46"]')).toHaveCount(1);
+ await expect(first.locator('.grid-hit[data-slot="2"][data-pitches="54"]')).toHaveCount(1);
+ await expect(first.locator('.grid-hit[data-slot="3"][data-pitches="56"]')).toHaveCount(1);
  await page.getByRole('button',{name:'Ir para compasso 4',exact:true}).click();
  expect(await page.evaluate(()=>window.videoClock.time)).toBe(7);
  await expect(page.locator('[data-index="3"]')).toHaveClass(/active/);
@@ -56,9 +68,30 @@ test('YouTube MIDI follows video time, seeks with offset, saves settings and rem
  await page.getByRole('button',{name:'Opções da música'}).click();
  await expect(page.getByLabel('Ajuste de sincronização (segundos)')).toHaveValue('1');
  await expect(page.getByLabel('Compassos por linha')).toHaveValue('4');
+ await expect(page.getByLabel('Visualização',{exact:true})).toHaveValue('grid');
  await expect(page.getByLabel('Rolagem automática')).not.toBeChecked();
  await page.getByRole('button',{name:'Fechar',exact:true}).click();
  for(const width of [320,390,844]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
- await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/tmp/compasso-youtube-score.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ // Auto-follow must move horizontally as well as vertically in grid view.
+ await page.getByRole('button',{name:'Opções da música'}).click();
+ await page.getByLabel('Rolagem automática').check();await page.getByRole('button',{name:'Salvar ajustes'}).click();
+ await page.evaluate(()=>{window.videoClock.time=7;window.videoClock.state=1;});
+ await expect.poll(()=>page.locator('.youtube-score-scroll').evaluate(e=>e.scrollLeft)).toBeGreaterThan(500);
+ await expect(page.locator('[data-index="3"]')).toHaveClass(/active/);
+ await page.evaluate(()=>{window.videoClock.state=2;});
+ // Change only the display: the clock, offset and imported notes remain intact.
+ await page.getByRole('button',{name:'Opções da música'}).click();
+ await page.getByLabel('Visualização',{exact:true}).selectOption('notation');
+ await page.getByRole('button',{name:'Salvar ajustes'}).click();
+ await expect(page.locator('.drum-grid')).toHaveCount(0);
+ await expect(page.locator('.engraving svg').first()).toBeVisible();
+ expect(await page.evaluate(()=>window.videoClock.time)).toBe(7);
+ await page.getByRole('button',{name:'Opções da música'}).click();
+ await page.getByLabel('Visualização',{exact:true}).selectOption('grid');
+ await page.getByLabel('Compassos por linha').selectOption('1');
+ await page.getByRole('button',{name:'Salvar ajustes'}).click();
+ await expect(page.locator('.drum-grid').first()).toBeVisible();
+ await page.screenshot({path:'/tmp/compasso-youtube-score.png',fullPage:true});
  expect(errors).toEqual([]);
 });

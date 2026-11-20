@@ -1,0 +1,21 @@
+.score-scroll { overflow-x:auto; max-width:100%; }
+.real-score-grid[data-score-view="grid"] {
+  grid-template-columns:repeat(var(--measures-per-row,2), minmax(280px,1fr));
+  gap:8px;
+}
+[data-score-view="grid"] .real-measure { background:#242824; border-color:#424b40; padding:10px 4px 6px; }
+[data-score-view="grid"] .real-measure > span { color:#abb6a4; margin:0 0 6px 5px; }
+[data-score-view="grid"] .real-measure.active { border-color:#d1bc76; box-shadow:inset 0 0 0 1px #d1bc76; }
+[data-score-view="grid"] .real-playhead { top:11%; bottom:0; background:#e8ce80; z-index:1; }
+[data-score-view="grid"] .engraving { aspect-ratio:540/252; }
+.drum-grid { display:block; width:100%; height:auto; font-family:ui-monospace,monospace; }
+.grid-beat-line { stroke:#485044; stroke-width:1; }
+.grid-lane-line { stroke:#4c5549; stroke-dasharray:4 5; }
+.grid-count { fill:#929e8a; font-size:17px; text-anchor:middle; }
+.grid-count.beat-count { fill:#e0e5da; font-weight:700; }
+.grid-label rect { fill:#242824; stroke:#4d5848; }
+.grid-label text { fill:#86917e; font-size:17px; text-anchor:middle; dominant-baseline:middle; }
+.grid-label.has-hits rect { stroke:#c7ae62; }
+.grid-label.has-hits text { fill:#e9d597; }
+.grid-hit { fill:#f5f5e9; font-size:23px; font-weight:700; text-anchor:middle; dominant-baseline:middle; }
+.score-view-hint { font-size:12px; color:#64715b; line-height:1.6; margin:12px 0; }

@@ -1,6 +1,7 @@
 import { parseDrumMidi, positionAt, validateCues, DRUMS } from './transcription.js';
 import { saveSession, getSession, listSessions, deleteSession } from './session-store.js';
-import { drawBar, cursorX } from './score-renderer.js';
+import { cursorX } from './score-renderer.js';
+import { drawScoreBar, scoreView, viewOptions } from './score-view.js';
 import { timeLabel } from './music.js';
 const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const MAX_AUDIO=80*1024*1024;
@@ -49,6 +50,7 @@ export async function renderRealLibrary(container,onOpen){
 export async function openRealSession(id,root,onBack){
   const session=await getSession(id);if(!root.isConnected)return null;if(!session)throw new Error('Esta música não está mais na biblioteca.');
   if(![1,2,4].includes(session.measuresPerRow)) session.measuresPerRow=matchMedia('(max-width: 760px)').matches?1:2;
+  session.scoreView=scoreView(session.scoreView);
   const audioUrl=URL.createObjectURL(session.audio);
   let raf,disposed=false,observer,scroll=true,lastBar=-1,writeQueue=Promise.resolve();
   root.innerHTML=`<main class="study real-study"><button class="back">‹ Minha biblioteca</button><div class="study-heading"><div><span class="eyebrow">SUA GRAVAÇÃO ORIGINAL</span><h1>${esc(session.title)}</h1><p>${timeLabel(session.duration)} · áudio local <span class="badge">MÚSICA REAL</span></p></div></div>
@@ -56,8 +58,8 @@ export async function openRealSession(id,root,onBack){
   <div class="session-actions"><button class="primary" id="add-cue">Marcar seção e letra</button><button class="secondary" id="replace-midi">${session.score?'Substituir':'Importar'} MIDI de bateria</button></div>
   <section class="cue-panel"><h2>Onde estou na música?</h2><p id="current-cue">Adicione marcações de Introdução, Verso, Refrão…</p><nav class="sections" id="real-cues" aria-label="Seções da música"></nav></section>
   <div class="score-toolbar real-toolbar"><label>Ajuste de sincronização (segundos)<input id="offset" type="number" step="0.05" min="-1800" max="1800" value="${session.offset}"></label><label><input id="real-scroll" type="checkbox" checked> Rolagem automática</label></div><p class="muted sync-help">Valor positivo atrasa a partitura em relação ao áudio. As marcações de letra mantêm seus tempos na gravação.</p>
-  <div class="score-layout-control"><label for="measures-per-row">Compassos por linha</label><select id="measures-per-row" aria-describedby="layout-hint">${[1,2,4].map(n=>`<option value="${n}" ${session.measuresPerRow===n?'selected':''}>${n}</option>`).join('')}</select><span id="layout-hint">Para 4 compassos, experimente o celular na horizontal.</span></div>
-  <p id="score-status" class="demo-notice"></p><div id="real-score"></div><p id="real-legend" class="score-legend"></p></main><div class="real-current" role="status"><span id="real-time">0:00</span><strong id="real-location">Áudio pronto</strong><button id="real-toggle" class="primary">Reproduzir</button></div>`;
+  <div class="score-layout-control"><label for="score-view">Visualização</label><select id="score-view">${viewOptions(session.scoreView)}</select><label for="measures-per-row">Compassos por linha</label><select id="measures-per-row" aria-describedby="layout-hint">${[1,2,4].map(n=>`<option value="${n}" ${session.measuresPerRow===n?'selected':''}>${n}</option>`).join('')}</select><span id="layout-hint">Para 4 compassos, experimente o celular na horizontal.</span></div>
+  <p id="score-status" class="demo-notice"></p><div class="score-scroll" tabindex="0" aria-label="Partitura de bateria"><div id="real-score"></div></div><p id="real-legend" class="score-legend"></p></main><div class="real-current" role="status"><span id="real-time">0:00</span><strong id="real-location">Áudio pronto</strong><button id="real-toggle" class="primary">Reproduzir</button></div>`;
   const audio=root.querySelector('audio');audio.src=audioUrl;
   const error=root.querySelector('#session-error');
   function persist(){
@@ -94,20 +96,30 @@ export async function openRealSession(id,root,onBack){
     finally{layoutSelect.disabled=!session.score;}
   };
   applyLayout();
+  const viewSelect=root.querySelector('#score-view');
+  viewSelect.onchange=async()=>{
+    const previous=session.scoreView;
+    session.scoreView=scoreView(viewSelect.value);viewSelect.disabled=true;
+    try{await persist();if(!disposed)drawScore();}
+    catch(e){session.scoreView=previous;viewSelect.value=previous;report(e);}
+    finally{viewSelect.disabled=!session.score;}
+  };
   const layouts=new Map();
   function drawScore(){
     observer?.disconnect();layouts.clear();lastBar=-1;
     const score=session.score,container=root.querySelector('#real-score');
     root.querySelector('#offset').disabled=!score;
-    layoutSelect.disabled=!score;
+    layoutSelect.disabled=!score;viewSelect.disabled=!score;
+    container.dataset.scoreView=session.scoreView;
+    root.querySelector('#layout-hint').textContent=session.scoreView==='grid'?'Na grade, deslize para ver os compassos ao lado.':'Para 4 compassos, experimente o celular na horizontal.';
     if(!score){container.innerHTML='';root.querySelector('#score-status').textContent='Sem partitura ainda. Importe um MIDI de bateria correspondente a este áudio. A geração automática por IA ainda não foi integrada.';return;}
     root.querySelector('#score-status').textContent=`${score.noteCount} notas importadas · ${score.bars.length} compassos · ${Math.round(score.tempo)} BPM${score.hasTempoChanges?' com mudanças de andamento':''}. Notação em grade de semicolcheias; ${score.rounded} ataques arredondados. Tercinas e microvariações não são representadas fielmente nesta versão. O áudio original não é alterado.${score.assumedMeter?' MIDI sem indicação de compasso: assumido 4/4.':''}${score.bars.at(-1).end+session.offset>session.duration+1?' Atenção: a partitura termina depois do áudio; confira se os arquivos correspondem e ajuste a sincronização.':''}`;
     container.className='real-score-grid';
     container.innerHTML=score.bars.map(b=>`<button class="real-measure" data-index="${b.index}" aria-label="Ir para compasso ${b.index+1}"><span>Compasso ${b.index+1}</span><div class="engraving"><i class="real-playhead"></i></div></button>`).join('');
-    const render=element=>{const index=Number(element.dataset.index);if(!layouts.has(index)){try{layouts.set(index,drawBar(element.querySelector('.engraving'),score.bars[index]));}catch(e){element.querySelector('.engraving').textContent='Não foi possível desenhar este compasso.';report(new Error('Falha ao renderizar a partitura.'));}}};
+    const render=element=>{const index=Number(element.dataset.index);if(!layouts.has(index)){try{layouts.set(index,drawScoreBar(element.querySelector('.engraving'),score.bars[index],session.scoreView,score.pieces));}catch(e){element.querySelector('.engraving').textContent='Não foi possível desenhar este compasso.';report(new Error('Falha ao renderizar a partitura.'));}}};
     observer=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting)render(e.target);}),{rootMargin:'400px'});
     container.querySelectorAll('.real-measure').forEach(b=>{observer.observe(b);b.onclick=()=>{audio.currentTime=Math.max(0,Math.min(session.duration,score.bars[Number(b.dataset.index)].start+session.offset));};});
-    root.querySelector('#real-legend').textContent=score.pieces.map(p=>`${p}: ${DRUMS[p][0]}`).join(' · ');
+    root.querySelector('#real-legend').textContent=(session.scoreView==='grid'?'x = pratos/chimbal · o = tambores. ':'')+score.pieces.map(p=>`${p}: ${DRUMS[p][0]}`).join(' · ');
   }
   root.querySelector('#replace-midi').onclick=()=>{
     const d=dialog('<form><h2>Importar transcrição</h2><p>MIDI de bateria General MIDI (canal 10), em 4/4, até 5 MB. Seções e letra serão preservadas.</p><label for="replacement-midi">Arquivo MIDI</label><input id="replacement-midi" type="file" accept=".mid,.midi" required><p class="error" role="alert"></p><button class="primary" type="submit">Usar esta transcrição</button></form>');
@@ -137,7 +149,7 @@ export async function openRealSession(id,root,onBack){
     const position=session.score?positionAt(session.score,time,session.offset):null;
     root.querySelector('#real-location').textContent=position?`Compasso ${position.bar+1}${cue?' · '+cue.name:''}`:cue?.name??'Gravação original';
     if(lastBar!==position?.bar){root.querySelector('.real-measure.active')?.classList.remove('active');lastBar=position?.bar??-1;
-      if(position){const element=root.querySelector(`[data-index="${position.bar}"]`);element.classList.add('active');if(scroll&&!audio.paused){const rect=element.getBoundingClientRect();if(rect.top<60||rect.bottom>innerHeight-100)element.scrollIntoView({behavior:'smooth',block:'center'});}}}
+      if(position){const element=root.querySelector(`[data-index="${position.bar}"]`);element.classList.add('active');if(scroll&&!audio.paused){const rect=element.getBoundingClientRect();if(rect.top<60||rect.bottom>innerHeight-100||rect.left<0||rect.right>innerWidth)element.scrollIntoView({behavior:'smooth',block:'center'});}}}
     if(position&&layouts.has(position.bar))root.querySelector(`[data-index="${position.bar}"]`).style.setProperty('--real-progress',`${cursorX(layouts.get(position.bar),position.progress)*100}%`);
     raf=requestAnimationFrame(tick);
   }

@@ -47,6 +47,19 @@ test('real audio + MIDI renders, plays and persists score, offset and lyric cues
  await expect(page.getByLabel('Compassos por linha',{exact:true})).toHaveValue('4');
  await expect(page.locator('#offset')).toHaveValue('1');await expect(page.getByRole('button',{name:'Refrão 0:03',exact:true})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+ const view=page.getByLabel('Visualização',{exact:true});
+ await view.selectOption('grid');await expect(view).toBeEnabled();
+ await expect(page.locator('.drum-grid').first()).toBeVisible();
+ const clock=await page.locator('audio').evaluate(a=>a.currentTime);
+ await view.selectOption('notation');await expect(view).toBeEnabled();
+ await expect(page.locator('.drum-grid')).toHaveCount(0);
+ expect(await page.locator('audio').evaluate(a=>a.currentTime)).toBe(clock);
+ await view.selectOption('grid');await expect(view).toBeEnabled();
+ await page.getByRole('button',{name:/Minha biblioteca/}).click();await page.reload();
+ await page.locator('#real-library').getByRole('button',{name:'Abrir música'}).click();
+ await expect(page.getByLabel('Visualização',{exact:true})).toHaveValue('grid');
+ await expect(page.locator('.drum-grid').first()).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  await page.screenshot({path:'/tmp/compasso-real-mobile.png',fullPage:true});expect(errors).toEqual([]);
 });
 test('audio alone never fabricates a score; invalid MIDI can be corrected',async({page})=>{

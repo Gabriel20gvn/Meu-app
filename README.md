@@ -8,6 +8,7 @@ App experimental de partitura de bateria para celular e computador. A prioridade
 - Importa MIDI de bateria correspondente à gravação: canal 10 General MIDI, 4/4, até 5 MB, 20 mil notas e aproximadamente 500 compassos.
 - Desenha as notas importadas com VexFlow, incluindo peças de toms e pratos suportadas; não substitui a transcrição por uma levada pronta.
 - Usa o áudio original como relógio de reprodução. Oferece play, pausa, busca, repetição, navegação por compasso, rolagem automática e ajuste de sincronização em segundos.
+- Visualização alternativa **Grade de bateria**, com fundo escuro, peças em linhas, golpes `x`/`o` e contagem de semicolcheias. A preferência fica salva por música; Partitura continua sendo o padrão.
 - Seletor de 1, 2 ou 4 compassos por linha, salvo por música neste navegador. Para 4 compassos no celular, prefira a orientação horizontal.
 - Permite marcar seções e pequenos trechos da letra manualmente nos tempos da gravação.
 - Salva áudio, MIDI interpretado e marcações localmente em IndexedDB. Não envia arquivos a terceiros. Os dados não sincronizam entre dispositivos e podem ser perdidos ao limpar os dados do navegador.
@@ -24,7 +25,11 @@ Na versão publicada: **Nova música → cole o link → Salvar link → Reprodu
 
 Após abrir o vídeo, toque em **Importar MIDI de bateria** e selecione o `.mid` ou `.midi` da mesma gravação. O botão dá lugar à partitura. O relógio do player oficial guia o destaque dos compassos, inclusive após buscar ou pausar pelo YouTube; tocar em um compasso busca esse momento no vídeo. A partitura tem rolagem própria para manter o vídeo visível.
 
-O menu **⋮** reúne troca de MIDI, ajuste de sincronização em segundos, 1/2/4 compassos por linha e rolagem automática. O MIDI interpretado e esses ajustes ficam associados ao ID do vídeo em IndexedDB neste navegador, separados das gravações locais. Um deslocamento positivo atrasa a partitura; versões diferentes da música podem exigir outro MIDI. A tela do YouTube ainda não oferece marcações de seção/letra nem loop de trecho.
+O menu **⋮ → Visualização** permite escolher **Partitura** ou **Grade de bateria**. Nas gravações locais, use o seletor **Visualização** ao lado de Compassos por linha. A troca preserva MIDI, andamento, offset e posição do áudio/vídeo.
+
+A grade agrupa as peças por família: Cr (crash/pratos), Rd (ride), Ch (chimbal), Cx (caixa/aro), Ta (tom agudo), Tm (tom médio/grave), Su (surdo) e Bu (bumbo). Pandeiro (Pd) e cowbell (Cb) aparecem quando presentes no MIDI. Golpes simultâneos ficam na mesma coluna; variações da mesma família compartilham o símbolo, com os nomes no tooltip e na descrição acessível. Para manter a leitura, compassos da grade têm largura mínima e rolagem lateral quando necessário. O marcador acompanha tanto na horizontal quanto na vertical. A grade usa a mesma quantização em semicolcheias da partitura e não corrige detecção, BPM ou compasso.
+
+O menu **⋮** também reúne troca de MIDI, ajuste de sincronização em segundos, 1/2/4 compassos por linha e rolagem automática. O MIDI interpretado e esses ajustes ficam associados ao ID do vídeo em IndexedDB neste navegador, separados das gravações locais. Um deslocamento positivo atrasa a partitura; versões diferentes da música podem exigir outro MIDI. A tela do YouTube ainda não oferece marcações de seção/letra nem loop de trecho.
 
 A sincronização usa a IFrame Player API oficial, com `enablejsapi=1` e `origin` do site. O app não adiciona controles de reprodução duplicados. Ao sair, destrói o player e interrompe a atualização do marcador. Se o YouTube ou sua API estiverem bloqueados, a partitura continua disponível, mas a sincronização depende da conexão com o player. Testes de integração usam uma API simulada; não comprovam streaming real do YouTube.
 
@@ -79,6 +84,7 @@ Em outro ambiente: `npx playwright install chromium`, seguido de `npm run test:e
 - `src/real-session.js`: importação de gravação, reprodução e marcações reais.
 - `src/transcription.js`: interpretação de MIDI, tempo e validação.
 - `src/score-renderer.js`: notação VexFlow e posição do marcador.
+- `src/drum-grid.js`, `src/score-view.js` e `src/score-view.css`: grade por instrumento e alternância de visualização.
 - `src/session-store.js`: persistência local IndexedDB.
 - `src/audio.js`, `src/music.js`: demonstração sintetizada.
 - `test/`, `e2e/`: testes de regras e de navegador.
