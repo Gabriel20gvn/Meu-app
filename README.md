@@ -67,9 +67,17 @@ Instale o [Docker Desktop](https://www.docker.com/products/docker-desktop/) e ag
 
 O script inicia o servidor somente no seu PC, em `http://localhost:8000`, abre a página no navegador e copia sua chave de acesso para a área de transferência. Cole essa chave no primeiro pedido de **Conectar processador**; o endereço local já vem preenchido. Depois use **Nova música → cole o link → Gerar partitura**. Se o YouTube bloquear a extração, envie MP3/WAV da mesma gravação. Não precisa instalar Node.js, Python ou ADTOF no Windows para esse caminho.
 
-A chave fica no arquivo `.env.local`, ignorado pelo Git. Guarde esse arquivo no PC e não envie a chave em mensagens. O Docker guarda os resultados temporários no volume `compasso-dados`; as partituras estudadas ficam no navegador. Dados salvos no site do GitHub Pages continuam naquele site: o navegador trata `localhost:8000` como uma biblioteca separada, então cole novamente o link da música que quiser testar localmente. O PC precisa estar ligado durante a análise e a reprodução pela página local. O celular exigirá uma etapa de acesso ao PC pela rede quando quisermos testá-lo.
+A chave fica no arquivo `.env.local`, ignorado pelo Git. Guarde esse arquivo no PC e não envie a chave em mensagens. O Docker guarda os resultados temporários no volume `compasso-dados`; as partituras estudadas ficam no navegador. Dados salvos no site do GitHub Pages continuam naquele site: o navegador trata `localhost:8000` como uma biblioteca separada, então cole novamente o link da música que quiser testar localmente. O PC precisa estar ligado durante a análise e a reprodução pela página local.
 
 Para abrir novamente, inicie o Docker Desktop e dê dois cliques no mesmo arquivo. Se aparecer um erro, deixe a janela aberta e consulte a mensagem. O contêiner usa somente a porta local `127.0.0.1:8000`; não é aberto para a internet.
+
+### Usar no celular pela mesma rede Wi-Fi
+
+Baixe a versão atualizada do projeto, extraia o ZIP e dê dois cliques em **Usar-no-celular.cmd**. O iniciador reconstrói a página e reinicia o processador com acesso pelo endereço privado do PC. Se esta for uma pasta nova, ele recupera a chave do contêiner antigo e cria `.env.local` nela. A atualização pode demorar alguns minutos. Não execute durante uma análise em andamento.
+
+Conecte o celular ao mesmo Wi-Fi do PC, sem usar rede de convidados. O iniciador mostrará um endereço como `http://192.168.1.23:8000`; digite **esse endereço exato** no navegador do celular. `localhost` no celular aponta para o próprio celular. Quando a tela pedir a chave, abra `.env.local` no PC e digite no celular somente o valor depois de `COMPASSO_API_TOKEN=`. A chave fica na sessão do navegador; ao abrir uma nova sessão, pode ser solicitada novamente.
+
+Se o Windows perguntar sobre acesso à rede, permita somente na **rede privada**. Use esse modo apenas em uma rede Wi-Fi confiável: a conexão local é HTTP e a chave trafega sem criptografia nessa rede. O modo celular escuta na porta 8000 das interfaces do PC; não configure redirecionamento dessa porta no roteador. Se o celular não abrir a página, confira se ambos estão na mesma rede, se o Windows a marcou como privada e se o firewall permite a porta 8000. O PC e o Docker Desktop devem permanecer ligados. Para voltar ao acesso somente pelo PC, execute **Iniciar-Compasso.cmd**.
 
 ### Desenvolver o código
 

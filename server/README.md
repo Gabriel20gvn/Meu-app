@@ -58,7 +58,7 @@ Gere a chave, por exemplo, com `python -c "import secrets; print(secrets.token_u
 docker run --rm --name compasso-ia --env-file .env -p 8000:8000 -v compasso-data:/data compasso-ia
 ```
 
-No aplicativo local, configure `http://localhost:8000`. Um celular precisa de um endpoint HTTPS acessível a ele; `localhost` no celular aponta para o próprio celular. Para uso com o PC desligado, use a implantação na nuvem.
+No aplicativo local, configure `http://localhost:8000`. Para testar no celular pela mesma rede Wi-Fi, use [Usar-no-celular.cmd](../Usar-no-celular.cmd) conforme o [guia do Windows](../README.md). `localhost` no celular aponta para o próprio celular. Para uso com o PC desligado ou fora da mesma rede, use uma implantação na nuvem.
 
 Python 3.10, TensorFlow/Keras 2.15 e NumPy 1.23 estão fixados para compatibilidade com ADTOF/madmom. Deno, FFmpeg e os modelos são instalados na imagem. Não substitua por Python 3.13/Keras 3 sem adaptar e testar o pipeline. Se a hospedagem interromper o processo por falta de memória, reduza a duração da gravação ou revise a memória do plano.
 

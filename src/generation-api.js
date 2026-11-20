@@ -1,16 +1,23 @@
 const ENDPOINT_KEY='compasso-processor';
 const TOKEN_KEY='compasso-processor-token';
+function privateIPv4(host){
+  const parts=host.split('.');
+  if(parts.length!==4||parts.some(part=>!/^\d{1,3}$/.test(part)||Number(part)>255))return false;
+  const [a,b]=parts.map(Number);
+  return a===10||(a===172&&b>=16&&b<=31)||(a===192&&b===168);
+}
 export function processorConfig(){
   let endpoint='',token='';
   try {endpoint=localStorage.getItem(ENDPOINT_KEY)||'';token=sessionStorage.getItem(TOKEN_KEY)||'';}catch{}
-  const local=location.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(location.hostname)?(import.meta.env.DEV?`${location.protocol}//${location.hostname}:8000`:location.origin):'';
+  const loopback=['localhost','127.0.0.1','[::1]'].includes(location.hostname);
+  const local=location.protocol==='http:'&&(loopback||privateIPv4(location.hostname))?(import.meta.env.DEV&&loopback?`${location.protocol}//${location.hostname}:8000`:location.origin):'';
   endpoint=endpoint||import.meta.env.VITE_TRANSCRIPTION_API_URL||local;
   return {endpoint,token};
 }
 export function normalizeEndpoint(value){
   const url=new URL(value);
   if(url.username||url.password||url.search||url.hash)throw new Error('Use somente o endereço do processador, sem chave ou parâmetros no link.');
-  const local=['localhost','127.0.0.1','[::1]'].includes(url.hostname);
+  const local=['localhost','127.0.0.1','[::1]'].includes(url.hostname)||(privateIPv4(url.hostname)&&url.origin===location.origin);
   if(url.protocol!=='https:'&&!(url.protocol==='http:'&&local))throw new Error('O processador na nuvem deve usar um endereço HTTPS.');
   return url.href.replace(/\/$/,'');
 }
